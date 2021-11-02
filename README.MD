@@ -1,5 +1,5 @@
 # Windy
-This is **Windy**, a visualization of Wind conditions and airpressure over the Nordic and Baltic areas, using open 
+This is **Windy**, a visualization of Wind conditions and air pressure over the Nordic and Baltic areas, using open 
 data from [SMHI](http://opendata.smhi.se/apidocs/metfcst/index.html).
 
 It is inspired from:

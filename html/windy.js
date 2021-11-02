@@ -45,6 +45,23 @@ map.setView([62.386843596239835, 16.32126446584757], 5); // Sweden midpoint
 
 $.getJSON("wind.json", function (data) {
     velocityLayer.setData(data);
+
+    L.Control.textbox = L.Control.extend({
+		onAdd: function(map) {
+
+            const text = L.DomUtil.create('div');
+            text.id = "info_text";
+		text.innerHTML = "<h1>" + data[0].header.refTime.substr(0, 10) + " " +
+            data[0].header.refTime.substr(11, 8) + "</h1>"
+		return text;
+		},
+
+		onRemove: function(map) {
+			// Nothing to do here
+		}
+	});
+	L.control.textbox = function(opts) { return new L.Control.textbox(opts);}
+	L.control.textbox({ position: 'topleft' }).addTo(map);
 });
 
 $.getJSON("msl.json", function (data) {
