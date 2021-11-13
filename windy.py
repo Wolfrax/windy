@@ -52,12 +52,16 @@ class Windy:
                                          wd_data['timeSeries'][0]['parameters'][0]['values'],
                                          ws_data['timeSeries'][0]['parameters'][0]['values']))
 
+            # Find out the distance between grid points in x-direction (longitudes) and y-direction (latitudes)
+            # longitudes comes in increased (West to East) order, thus after a certain number of longitudes it
+            # wraps back to next grid row
             self.lon_nx = 0
             for ind in range(1, self.wind.shape[0]):
                 self.lon_nx += 1
                 if self.wind[ind][0] < self.wind[ind - 1][0]:
+                    # Next grid row found, break here as we know number of grid points in x-direction (longitudes)
                     break
-            self.lat_ny = int(self.wind.shape[0] / self.lon_nx)
+            self.lat_ny = int(self.wind.shape[0] / self.lon_nx)  # Number of grid points in y-direction (latitudes)
 
             self.ref_time = valid_time['validTime'][0]
 

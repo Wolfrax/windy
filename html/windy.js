@@ -1,7 +1,6 @@
-// https://www.patrick-wied.at/static/heatmapjs/docs.html#h337-create
 const heatmapLayer = new HeatmapOverlay({
     radius: 7.0,
-    maxOpacity: 0.4,
+    maxOpacity: 0.2,
     gradient: {
         '.25': 'blue',
         '0.5': 'green',
@@ -38,7 +37,7 @@ const Esri_DarkGreyCanvas = L.tileLayer(
 );
 
 const map = L.map("map", {
-    layers: [Esri_DarkGreyCanvas, heatmapLayer, velocityLayer]
+    layers: [Esri_DarkGreyCanvas, velocityLayer, heatmapLayer]
 });
 
 map.setView([62.386843596239835, 16.32126446584757], 5); // Sweden midpoint
@@ -48,12 +47,11 @@ $.getJSON("wind.json", function (data) {
 
     L.Control.textbox = L.Control.extend({
 		onAdd: function(map) {
-
             const text = L.DomUtil.create('div');
             text.id = "info_text";
-		text.innerHTML = "<h1>" + data[0].header.refTime.substr(0, 10) + " " +
-            data[0].header.refTime.substr(11, 8) + "</h1>"
-		return text;
+		    text.innerHTML = "<h1>" + data[0].header.refTime.substr(0, 10) + " " +
+                data[0].header.refTime.substr(11, 8) + "</h1>"
+		    return text;
 		},
 
 		onRemove: function(map) {
