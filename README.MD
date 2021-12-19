@@ -7,8 +7,9 @@ It is inspired from:
 * [Wind map](http://hint.fm/wind/)
 
 The implementation have a server side daemon, `windy.py`, that collects new data from SMHI every hour. Results are 
-stored into two json files: `msl.json` (air pressure) and `wind.json`. For implementation, see blog entry (link to be 
-added).
+stored into two json files: `msl.json` (air pressure) and `wind.json`. For implementation, see blog entry 
+[here](https://wlog.viltstigen.se/articles/2021/11/08/visualizing-wind-using-leaflet/)
+
 
 The visualization is on the client side, using [Leaflet](https://leafletjs.com/) and its plugin 
 [leaflet-velocity](https://github.com/onaci/leaflet-velocity).
