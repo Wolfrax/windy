@@ -14,7 +14,7 @@ stored into two json files: `msl.json` (air pressure) and `wind.json`. For imple
 The visualization is on the client side, using [Leaflet](https://leafletjs.com/) and its plugin 
 [leaflet-velocity](https://github.com/onaci/leaflet-velocity).
 
-The result is can be seen [here](https://www.viltstigen.se/windy/windy.html)
+The result can be seen [here](https://www.viltstigen.se/windy/windy.html)
 
 ### Bilinear transformations
 As an added bonus, `bil.py` implements bilinear interpolation of a square surface and display the results.
