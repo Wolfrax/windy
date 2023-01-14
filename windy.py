@@ -3,9 +3,18 @@ import numpy as np
 import json
 import requests
 import uritemplate
+import logging
+from logging.handlers import HTTPHandler
 
+_LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
+
+http_handler = logging.handlers.HTTPHandler('www.viltstigen.se', '/logger/log', method='POST', secure=True)
+_LOGGER.addHandler(http_handler)
 
 # Latitude: N-S, Longitude: W-E
+
+
 class Windy:
     def __init__(self, wind_downsample=None, msl_downsample=None, mesan=False):
         if mesan:
@@ -90,7 +99,7 @@ class Windy:
             self.json = None
 
         except requests.HTTPError:
-            print("HTTPError")
+            logging.warning("HTTPError")
 
     def save_wind(self, name='wind.json'):
         head_u = {'parameterCategory': 2,
