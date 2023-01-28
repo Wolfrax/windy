@@ -12,6 +12,10 @@ const heatmapLayer = new HeatmapOverlay({
 });
 
 const velocityLayer = new L.velocityLayer({
+        particleMultiplier: 1/150,
+        frameRate: 30,
+        lineWidth: 1,
+        particleAge: 180,
         displayValues: true,
         displayOptions: {
             velocityType: "Wind",
