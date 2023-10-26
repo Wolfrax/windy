@@ -1,6 +1,6 @@
 const heatmapLayer = new HeatmapOverlay({
     radius: 7.0,
-    maxOpacity: 0.2,
+    maxOpacity: 0.4,
     gradient: {
         '.25': 'blue',
         '0.5': 'green',
@@ -29,19 +29,14 @@ const velocityLayer = new L.velocityLayer({
         colorScale: ["rgb(255,255, 255)"]
     });
 
-const Esri_DarkGreyCanvas = L.tileLayer(
-    "https://{s}.sm.mapstack.stamen.com/" +
-    "(toner-lite,$fff[difference],$fff[@23],$fff[hsl-saturation@20])/" +
-    "{z}/{x}/{y}.png",
-    {
-        attribution:
-            "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, " +
-            "NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community"
-    }
-);
+var USGS_USImagery = L.tileLayer(
+    'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', {
+	maxZoom: 20,
+	attribution: 'Tiles courtesy of the <a href="https://usgs.gov/">U.S. Geological Survey</a>'
+});
 
 const map = L.map("map", {
-    layers: [Esri_DarkGreyCanvas, velocityLayer, heatmapLayer]
+    layers: [USGS_USImagery, velocityLayer, heatmapLayer]
 });
 
 map.setView([62.386843596239835, 16.32126446584757], 5); // Sweden midpoint
