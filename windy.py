@@ -28,7 +28,7 @@ class Windy:
 
         try:
             valid_time = requests.get(valid_time_url).json()
-            vt = valid_time['validTime'][0].replace('-', '').replace(':', '')  # First hour after 'now'
+            vt = valid_time['validTime'][1].replace('-', '').replace(':', '')  # First hour after 'now'
 
             parameters = requests.get(par_url).json()
 
