@@ -28,7 +28,8 @@ class Windy:
 
         try:
             valid_time = requests.get(valid_time_url).json()
-            vt = valid_time['validTime'][2].replace('-', '').replace(':', '')  # ind 2: nearest historical hour from now
+            time_ind = 2 # ind 2: nearest historical hour from now
+            vt = valid_time['validTime'][time_ind].replace('-', '').replace(':', '')
 
             parameters = requests.get(par_url).json()
 
@@ -72,7 +73,7 @@ class Windy:
                     break
             self.lat_ny = int(self.wind.shape[0] / self.lon_nx)  # Number of grid points in y-direction (latitudes)
 
-            self.ref_time = valid_time['validTime'][0]
+            self.ref_time = valid_time['validTime'][time_ind]
 
             # Sort first on lon/W-E (column 0), then lat/N-S (column 1), lexsort uses reversed order
             # See https://stackoverflow.com/a/64053838
