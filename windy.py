@@ -5,6 +5,7 @@ import requests
 import uritemplate
 import logging
 from logging.handlers import HTTPHandler
+from datetime import datetime
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.DEBUG)
@@ -28,8 +29,12 @@ class Windy:
 
         try:
             valid_time = requests.get(valid_time_url).json()
-            time_ind = 2 # ind 2: nearest historical hour from now
-            vt = valid_time['validTime'][time_ind].replace('-', '').replace(':', '')
+
+            # Valid time is given in iso format UTC time, eg "2024-11-04T17:00:00Z" (Z = zero time offset)
+            # The first index of list of valid times is used (index 0).
+            # Later on, below, this time is converted to local time, ie UTC + 1:00 hour
+            st = valid_time['validTime'][0]
+            vt = st.replace('-', '').replace(':', '')
 
             parameters = requests.get(par_url).json()
 
@@ -73,7 +78,9 @@ class Windy:
                     break
             self.lat_ny = int(self.wind.shape[0] / self.lon_nx)  # Number of grid points in y-direction (latitudes)
 
-            self.ref_time = valid_time['validTime'][time_ind]
+            # Convert to local time, see link
+            # https://stackoverflow.com/questions/68664644/how-can-i-convert-from-utc-time-to-local-time-in-python
+            self.ref_time = datetime.fromisoformat(st[:-1] + '+00:00').astimezone().isoformat(timespec='seconds')[:-6]
 
             # Sort first on lon/W-E (column 0), then lat/N-S (column 1), lexsort uses reversed order
             # See https://stackoverflow.com/a/64053838
