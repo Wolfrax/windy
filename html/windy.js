@@ -45,20 +45,48 @@ $.getJSON("wind.json", function (data) {
     velocityLayer.setData(data);
 
     L.Control.textbox = L.Control.extend({
-		onAdd: function(map) {
+        onAdd: function(map) {
             const text = L.DomUtil.create('div');
             text.id = "info_text";
-		    text.innerHTML = "<h1>" + data[0].header.refTime.substr(0, 10) + " " +
-                data[0].header.refTime.substr(11, 8) + "</h1>"
-		    return text;
-		},
 
-		onRemove: function(map) {
-			// Nothing to do here
-		}
-	});
-	L.control.textbox = function(opts) { return new L.Control.textbox(opts);}
-	L.control.textbox({ position: 'topleft' }).addTo(map);
+            // Original timestamp (no timezone info)
+            const input = data[0].header.refTime;
+
+            // Treat it as UTC by appending "Z"
+            const utcInput = input + "Z";
+
+            // Parse as UTC
+            const date = new Date(utcInput);
+
+            // Format in Swedish timezone
+            const formatter = new Intl.DateTimeFormat("sv-SE", {
+                timeZone: "Europe/Stockholm",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false
+            });
+
+            const parts = formatter.formatToParts(date);
+
+            const get = (type) => parts.find(p => p.type === type).value;
+
+            const formatted = `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+
+            text.innerHTML = "<h1>" + formatted + "</h1>";
+            return text;
+        },
+
+        onRemove: function(map) {
+            // Nothing to do here
+        }
+    });
+
+    L.control.textbox = function(opts) { return new L.Control.textbox(opts); }
+    L.control.textbox({ position: 'topleft' }).addTo(map);
 });
 
 $.getJSON("msl.json", function (data) {
