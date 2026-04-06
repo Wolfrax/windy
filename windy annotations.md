@@ -1,3 +1,241 @@
+# 🌬️ Windy Data Processing Pipeline
+
+This project fetches meteorological data from the SMHI open data API, processes it into a structured grid, and outputs wind vector data suitable for visualization in a Leaflet-based frontend (using the velocity layer plugin).
+
+---
+
+## 📌 Overview
+
+The script performs the following steps:
+
+1. Fetches metadata and available parameters from the API
+2. Retrieves geospatial wind data (direction and speed)
+3. Downsamples large datasets (optional)
+4. Converts wind direction and speed into vector components (u, v)
+5. Interpolates scattered data onto a नियमित grid
+6. Applies fallback interpolation strategies to handle missing values
+7. Smooths the resulting vector field
+8. Outputs a JSON file compatible with frontend visualization
+
+---
+
+## 🧱 Project Structure
+
+* `windy.py` — Main processing script
+* `wind.json` — Generated output used by the frontend
+* `html/` — (Optional) frontend visualization files
+
+---
+
+## ⚙️ Requirements
+
+* Python 3.8+
+* Dependencies:
+
+  * numpy
+  * scipy
+  * requests
+  * uritemplate
+
+Install dependencies:
+
+```bash
+pip install numpy scipy requests uritemplate
+```
+
+---
+
+## 🚀 Usage
+
+Run the script:
+
+```bash
+python windy.py
+```
+
+This will:
+
+1. Fetch data from the SMHI API
+2. Process and interpolate wind data
+3. Save the result to:
+
+```
+./html/wind.json
+```
+
+---
+
+## ⚙️ Configuration
+
+The `Windy` class can be configured via constructor parameters:
+
+```python
+Windy(
+    grid_size=150,
+    sample_size=10000,
+    smoothing_sigma=0.6
+)
+```
+
+### Parameters
+
+* **grid_size**: Resolution of output grid (NxN)
+
+  * Higher values = more detail but increased computation
+
+* **sample_size**: Maximum number of input points used
+
+  * Randomly downsampled if dataset exceeds this size
+
+* **smoothing_sigma**: Gaussian smoothing factor
+
+  * Controls smoothing strength of the vector field
+
+---
+
+## 📡 Data Source
+
+Data is retrieved from the SMHI open data API:
+
+```
+https://opendata-download-metfcst.smhi.se/api/
+```
+
+The script specifically uses:
+
+* Wind direction (`wd`)
+* Wind speed (`ws`)
+* Pressure (`pres`) *(optional for future use)*
+
+---
+
+## 🧮 Processing Pipeline
+
+### 1. Data Fetching
+
+* Retrieves available timestamps and parameter definitions
+* Selects the first available time step
+
+### 2. Parameter Extraction
+
+* Identifies required parameters:
+
+  * Wind direction
+  * Wind speed
+  * Pressure
+
+### 3. Downsampling
+
+* Randomly reduces dataset size if it exceeds `sample_size`
+
+### 4. Wind Vector Conversion
+
+* Converts wind direction and speed into:
+
+  * **u** (east-west component)
+  * **v** (north-south component)
+
+### 5. Grid निर्माण
+
+* Creates a uniform latitude/longitude grid using `numpy.meshgrid`
+
+### 6. Interpolation
+
+* Applies spatial interpolation using:
+
+  * Cubic interpolation (primary)
+  * Linear interpolation (fallback)
+  * Nearest-neighbor interpolation (final fallback)
+
+### 7. Smoothing
+
+* Applies Gaussian filter to reduce noise and improve visual continuity
+
+### 8. Output Formatting
+
+* Flattens grid data
+* Computes metadata (grid spacing, bounds)
+* Writes structured JSON output
+
+---
+
+## 📤 Output Format
+
+The generated `wind.json` file contains two datasets:
+
+* u-component (east-west wind)
+* v-component (north-south wind)
+
+Example structure:
+
+```json
+[
+  {
+    "header": {
+      "lo1": ...,
+      "la1": ...,
+      "dx": ...,
+      "dy": ...,
+      "nx": ...,
+      "ny": ...,
+      "refTime": ...
+    },
+    "data": [ ... ]
+  },
+  {
+    "header": {
+      "parameterNumber": 3
+    },
+    "data": [ ... ]
+  }
+]
+```
+
+---
+
+## 🖥️ Frontend Integration
+
+The output file is designed to be consumed by a Leaflet-based visualization using the `leaflet-velocity` plugin.
+
+Typical usage:
+
+* Load `wind.json` via AJAX
+* Pass data into velocity layer
+* Render animated wind particles on a map
+
+---
+
+## ⚠️ Notes
+
+* Cubic interpolation may produce NaN values in sparse regions
+* Fallback interpolation ensures full grid coverage
+* Random downsampling introduces non-deterministic results
+* Higher grid sizes increase computation time significantly
+* Gaussian smoothing may slightly blur sharp gradients
+
+---
+
+## 📈 Performance Considerations
+
+* Reduce `grid_size` for faster processing
+* Lower `sample_size` for large datasets
+* Adjust `smoothing_sigma` to balance smoothness vs. detail
+
+---
+
+## 📄 License
+
+This project uses publicly available meteorological data from SMHI. Ensure compliance with their data usage policies when redistributing or deploying.
+
+---
+
+## 🙌 Acknowledgements
+
+* SMHI Open Data API
+* SciPy and NumPy for numerical processing
+* Leaflet and leaflet-velocity for visualization
+
+
 #leaflet-velocity
 
 See https://github.com/onaci/leaflet-velocity
