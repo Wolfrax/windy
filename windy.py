@@ -15,58 +15,59 @@ _LOGGER.addHandler(http_handler)
 
 # Latitude: N-S, Longitude: W-E
 
+# Note that this now uses SMHI forecast data model snow1g, 
+# The data is downloaded for the first valid time, which is the same for all parameters. 
+# The data is then sorted in order of increasing longitude (W-E) and then increasing latitude (S-N). 
+# The distance between grid points in x-direction (longitudes) and y-direction (latitudes) is calculated, as well as 
+# the reference time for the forecast data. The wind direction and speed are converted to u and v vector components.
+
 
 class Windy:
-    def __init__(self, wind_downsample=None, msl_downsample=None, mesan=False):
-        if mesan:
-            site_url = "https://opendata-download-metanalys.smhi.se/api/category/mesan1g/version/2/"
-        else:
-            site_url = "https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/"
-
-        valid_time_url = site_url + "geotype/multipoint/validtime.json"
-        par_url = site_url + "parameter.json"
-        data_url = site_url + "geotype/multipoint/validtime/{t}/parameter/{par}/leveltype/{hl}/level/{l}/data.json"
+    def __init__(self, wind_downsample=None, msl_downsample=None):
+        base_url = "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1"
+        data_url = base_url + "/geotype/multipoint/time/{t}/parameter/{par}/data.json"
+        par_url = base_url + "/parameter.json"
+        times_url = base_url + "/times.json"
 
         try:
-            valid_time = requests.get(valid_time_url).json()
-
+            times = requests.get(times_url).json()
             # Valid time is given in iso format UTC time, eg "2024-11-04T17:00:00Z" (Z = zero time offset)
             # The first index of list of valid times is used (index 0).
-            # Later on, below, this time is converted to local time, ie UTC + 1:00 hour
-            st = valid_time['validTime'][0]
+            # Later on, below, this time is converted to local time, ie UTC + 1:00 hour (or +2:00 hour if daylight saving time is in effect).
+
+            st = times['time'][0]
             vt = st.replace('-', '').replace(':', '')
 
             parameters = requests.get(par_url).json()
 
             # https://stackoverflow.com/a/31988734
-            wd_par = next((item for item in parameters['parameter'] if item['name'] == 'wd'), None)
-            ws_par = next((item for item in parameters['parameter'] if item['name'] == 'ws'), None)
-            msl_par = next((item for item in parameters['parameter'] if item['name'] == 'msl'), None)
+            # wd = wind direction, ws = wind speed, msl = air pressure at mean sea level
+            wd_par = next((item for item in parameters['parameter'] if item['shortName'] == 'wd'), None)
+            ws_par = next((item for item in parameters['parameter'] if item['shortName'] == 'ws'), None)
+            msl_par = next((item for item in parameters['parameter'] if item['shortName'] == 'pres'), None)
             if wd_par and ws_par and msl_par:
                 # Wind direction data
-                wd_url = uritemplate.expand(data_url,
-                                            t=vt, par=wd_par['name'], hl=wd_par['levelType'], l=wd_par['level'])
+                wd_url = uritemplate.expand(data_url, t=vt, par=wd_par['name'])
                 wd_data = requests.get(wd_url, params={'with-geo': True, 'downsample': wind_downsample}).json()
 
-                # wind speed data, don't include latitudes/longitudes
-                ws_url = uritemplate.expand(data_url,
-                                            t=vt, par=ws_par['name'], hl=ws_par['levelType'], l=ws_par['level'])
-                ws_data = requests.get(ws_url, params={'with-geo': False, 'downsample': wind_downsample}).json()
+                # wind speed data
+                ws_url = uritemplate.expand(data_url, t=vt, par=ws_par['name'])
+                ws_data = requests.get(ws_url, params={'with-geo': True, 'downsample': wind_downsample}).json()
 
-                # air pressure
-                msl_url = uritemplate.expand(data_url,
-                                             t=vt, par=msl_par['name'], hl=msl_par['levelType'], l=msl_par['level'])
+                # air pressure at mean sea level data
+                msl_url = uritemplate.expand(data_url, t=vt, par=msl_par['name'])
                 msl_data = requests.get(msl_url, params={'with-geo': True, 'downsample': msl_downsample}).json()
             else:
                 raise ValueError('wd_par: {} or ws_par: {} is None'.format(wd_par, ws_par))
 
+            # Note that coordinates comes in order [lon, lat], but we want [lat, lon], thus we shift columns and add the data column at the end
             self.msl = np.array(msl_data['geometry']['coordinates'])[:, [1, 0]]  # Shift columns so we have lat, lon
-            self.msl = np.column_stack((self.msl, msl_data['timeSeries'][0]['parameters'][0]['values']))
+            self.msl = np.column_stack((self.msl, msl_data['timeSeries'][0]['data'][msl_par['name']]))
 
             self.wind = np.column_stack((wd_data['geometry']['coordinates'],
-                                         wd_data['timeSeries'][0]['parameters'][0]['values'],
-                                         ws_data['timeSeries'][0]['parameters'][0]['values']))
-
+                                         wd_data['timeSeries'][0]['data'][wd_par['name']],
+                                         ws_data['timeSeries'][0]['data'][ws_par['name']]))
+            
             # Find out the distance between grid points in x-direction (longitudes) and y-direction (latitudes)
             # longitudes comes in increased (West to East) order, thus after a certain number of longitudes it
             # wraps back to next grid row
@@ -137,6 +138,6 @@ class Windy:
 
 
 if __name__ == "__main__":
-    w = Windy(wind_downsample=60, msl_downsample=5, mesan=False)
+    w = Windy(wind_downsample=60, msl_downsample=5)
     w.save_wind(name='./html/wind.json')
     w.save_msl(name='./html/msl.json')
