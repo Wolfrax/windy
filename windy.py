@@ -1,143 +1,236 @@
-import math
-import numpy as np
 import json
+import logging
+import numpy as np
 import requests
 import uritemplate
-import logging
-from logging.handlers import HTTPHandler
-from datetime import datetime
 
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
-
-http_handler = logging.handlers.HTTPHandler('www.viltstigen.se', '/logger/log', method='POST', secure=True)
-_LOGGER.addHandler(http_handler)
-
-# Latitude: N-S, Longitude: W-E
-
-# Note that this now uses SMHI forecast data model snow1g, 
-# The data is downloaded for the first valid time, which is the same for all parameters. 
-# The data is then sorted in order of increasing longitude (W-E) and then increasing latitude (S-N). 
-# The distance between grid points in x-direction (longitudes) and y-direction (latitudes) is calculated, as well as 
-# the reference time for the forecast data. The wind direction and speed are converted to u and v vector components.
 
 
 class Windy:
-    def __init__(self, wind_downsample=None, msl_downsample=None):
-        base_url = "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1"
-        data_url = base_url + "/geotype/multipoint/time/{t}/parameter/{par}/data.json"
-        par_url = base_url + "/parameter.json"
-        times_url = base_url + "/times.json"
+    BASE_URL = "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1"
 
-        try:
-            times = requests.get(times_url).json()
-            # Valid time is given in iso format UTC time, eg "2024-11-04T17:00:00Z" (Z = zero time offset)
-            # The first index of list of valid times is used (index 0).
-            # Later on, below, this time is converted to local time, ie UTC + 1:00 hour (or +2:00 hour if daylight saving time is in effect).
+    def __init__(
+        self,
+        grid_size=150,
+        sample_size=10000,
+        smoothing_sigma=0.6
+    ):
+        self.grid_size = grid_size
+        self.sample_size = sample_size
+        self.smoothing_sigma = smoothing_sigma
 
-            st = times['time'][0]
-            vt = st.replace('-', '').replace(':', '')
+    # -------------------------
+    # HTTP helpers
+    # -------------------------
+    def _get_json(self, url, params=None):
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        return r.json()
 
-            parameters = requests.get(par_url).json()
+    def _fetch_parameter(self, template, t, param_name):
+        url = uritemplate.expand(template, t=t, par=param_name)
+        return self._get_json(url, {"with-geo": True})
 
-            # https://stackoverflow.com/a/31988734
-            # wd = wind direction, ws = wind speed, msl = air pressure at mean sea level
-            wd_par = next((item for item in parameters['parameter'] if item['shortName'] == 'wd'), None)
-            ws_par = next((item for item in parameters['parameter'] if item['shortName'] == 'ws'), None)
-            msl_par = next((item for item in parameters['parameter'] if item['shortName'] == 'pres'), None)
-            if wd_par and ws_par and msl_par:
-                # Wind direction data
-                wd_url = uritemplate.expand(data_url, t=vt, par=wd_par['name'])
-                wd_data = requests.get(wd_url, params={'with-geo': True, 'downsample': wind_downsample}).json()
+    # -------------------------
+    # Fetch data
+    # -------------------------
+    def fetch(self):
+        times = self._get_json(f"{self.BASE_URL}/times.json")
+        parameters = self._get_json(f"{self.BASE_URL}/parameter.json")
 
-                # wind speed data
-                ws_url = uritemplate.expand(data_url, t=vt, par=ws_par['name'])
-                ws_data = requests.get(ws_url, params={'with-geo': True, 'downsample': wind_downsample}).json()
+        st = times["time"][0]
+        vt = st.replace("-", "").replace(":", "")
 
-                # air pressure at mean sea level data
-                msl_url = uritemplate.expand(data_url, t=vt, par=msl_par['name'])
-                msl_data = requests.get(msl_url, params={'with-geo': True, 'downsample': msl_downsample}).json()
-            else:
-                raise ValueError('wd_par: {} or ws_par: {} is None'.format(wd_par, ws_par))
+        def find_param(short):
+            return next((p for p in parameters["parameter"] if p["shortName"] == short), None)
 
-            # Note that coordinates comes in order [lon, lat], but we want [lat, lon], thus we shift columns and add the data column at the end
-            self.msl = np.array(msl_data['geometry']['coordinates'])[:, [1, 0]]  # Shift columns so we have lat, lon
-            self.msl = np.column_stack((self.msl, msl_data['timeSeries'][0]['data'][msl_par['name']]))
+        wd_par = find_param("wd")
+        ws_par = find_param("ws")
+        msl_par = find_param("pres")
 
-            self.wind = np.column_stack((wd_data['geometry']['coordinates'],
-                                         wd_data['timeSeries'][0]['data'][wd_par['name']],
-                                         ws_data['timeSeries'][0]['data'][ws_par['name']]))
-            
-            # Find out the distance between grid points in x-direction (longitudes) and y-direction (latitudes)
-            # longitudes comes in increased (West to East) order, thus after a certain number of longitudes it
-            # wraps back to next grid row
-            self.lon_nx = 0
-            for ind in range(1, self.wind.shape[0]):
-                self.lon_nx += 1
-                if self.wind[ind][0] < self.wind[ind - 1][0]:
-                    # Next grid row found, break here as we know number of grid points in x-direction (longitudes)
-                    break
-            self.lat_ny = int(self.wind.shape[0] / self.lon_nx)  # Number of grid points in y-direction (latitudes)
+        if not all([wd_par, ws_par, msl_par]):
+            raise ValueError("Missing required parameters")
 
-            # Convert to local time, see link
-            # https://stackoverflow.com/questions/68664644/how-can-i-convert-from-utc-time-to-local-time-in-python
-            self.ref_time = datetime.fromisoformat(st[:-1] + '+00:00').astimezone().isoformat(timespec='seconds')[:-6]
+        data_url = f"{self.BASE_URL}/geotype/multipoint/time/{{t}}/parameter/{{par}}/data.json"
 
-            # Sort first on lon/W-E (column 0), then lat/N-S (column 1), lexsort uses reversed order
-            # See https://stackoverflow.com/a/64053838
-            ind = np.lexsort((self.wind[:, 1], self.wind[:, 0]))
-            self.wind = self.wind[ind]
+        self.wd_data = self._fetch_parameter(data_url, vt, wd_par["name"])
+        self.ws_data = self._fetch_parameter(data_url, vt, ws_par["name"])
+        self.msl_data = self._fetch_parameter(data_url, vt, msl_par["name"])
 
-            # http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv
-            u_vector = []
-            v_vector = []
-            for i in range(self.wind.shape[0]):
-                theta = 270 - self.wind[i][2]
-                if theta < 0:
-                    theta += 360
-                theta = math.radians(theta)
-                u = self.wind[i][3] * math.cos(theta)
-                v = self.wind[i][3] * math.sin(theta)
-                u_vector.append(u)
-                v_vector.append(v)
+        self.param_names = {
+            "wd": wd_par["name"],
+            "ws": ws_par["name"],
+            "msl": msl_par["name"]
+        }
 
-            self.wind = np.column_stack((self.wind, u_vector, v_vector))
-            self.bounds = {'Min lon': np.amin(self.wind, 0)[0], 'Max lon': np.amax(self.wind, 0)[0],
-                           'Min lat': np.amin(self.wind, 0)[1], 'Max lat': np.amax(self.wind, 0)[1]}
+        self.ref_time = st.replace("Z", "")
 
-            self.json = None
+    # -------------------------
+    # Processing
+    # -------------------------
+    def process(self):
+        coords = np.array(self.wd_data["geometry"]["coordinates"])
+        lons = coords[:, 0]
+        lats = coords[:, 1]
 
-        except requests.HTTPError:
-            logging.warning("HTTPError")
+        wd = np.array(self.wd_data["timeSeries"][0]["data"][self.param_names["wd"]])
+        ws = np.array(self.ws_data["timeSeries"][0]["data"][self.param_names["ws"]])
 
-    def save_wind(self, name='wind.json'):
-        head_u = {'parameterCategory': 2,
-                  'parameterNumber': 2,
-                  'lo1': self.bounds['Min lon'],
-                  'la1': self.bounds['Max lat'],
-                  'dx': abs((self.bounds['Min lon'] - self.bounds['Max lon']) / (self.lon_nx - 1)),
-                  'dy': abs((self.bounds['Min lat'] - self.bounds['Max lat']) / (self.lat_ny - 1)),
-                  'nx': self.lon_nx,  # lon W-E
-                  'ny': self.lat_ny,  # lat S-N
-                  'refTime': self.ref_time}
+        print("\n--- INPUT DATA ---")
+        print("Total points:", len(lons))
 
-        head_v = head_u.copy()
-        head_v['parameterNumber'] = 3
+        # -------------------------
+        # Downsampling
+        # -------------------------
+        if self.sample_size and len(lons) > self.sample_size:
+            idx = np.random.choice(len(lons), self.sample_size, replace=False)
+            lons = lons[idx]
+            lats = lats[idx]
+            wd = wd[idx]
+            ws = ws[idx]
 
-        self.json = [{'header': head_u,
-                      'data': [self.wind[i][4] for i in range(self.wind.shape[0])]},
-                     {'header': head_v,
-                      'data': [self.wind[i][5] for i in range(self.wind.shape[0])]}]
+            print("Downsampled to:", len(lons))
 
-        with open(name, 'w') as f:
-            json.dump(self.json, f)
+        # -------------------------
+        # Convert wind → u/v
+        # -------------------------
+        theta = np.radians(270 - wd)
+        u = ws * np.cos(theta)
+        v = ws * np.sin(theta)
 
-    def save_msl(self, name='msl.json'):
-        with open(name, 'w') as f:
-            json.dump(self.msl.tolist(), f)
+        # -------------------------
+        # Grid creation
+        # -------------------------
+        lon_grid = np.linspace(lons.min(), lons.max(), self.grid_size)
+        lat_grid = np.linspace(lats.min(), lats.max(), self.grid_size)
+
+        grid_lon, grid_lat = np.meshgrid(lon_grid, lat_grid)
+
+        print("\n--- GRID ---")
+        print("Grid shape:", grid_lon.shape)
+
+        # -------------------------
+        # Interpolation (cubic → linear → nearest)
+        # -------------------------
+        print("\nInterpolating (cubic)...")
+
+        u_grid = griddata((lons, lats), u, (grid_lon, grid_lat), method="cubic")
+        v_grid = griddata((lons, lats), v, (grid_lon, grid_lat), method="cubic")
+
+        print("NaNs after cubic (u):", np.isnan(u_grid).sum())
+        print("NaNs after cubic (v):", np.isnan(v_grid).sum())
+
+        # --- Linear fallback ---
+        if np.isnan(u_grid).any():
+            u_linear = griddata((lons, lats), u, (grid_lon, grid_lat), method="linear")
+            u_grid[np.isnan(u_grid)] = u_linear[np.isnan(u_grid)]
+
+        if np.isnan(v_grid).any():
+            v_linear = griddata((lons, lats), v, (grid_lon, grid_lat), method="linear")
+            v_grid[np.isnan(v_grid)] = v_linear[np.isnan(v_grid)]
+
+        # --- Nearest fallback ---
+        if np.isnan(u_grid).any():
+            u_nearest = griddata((lons, lats), u, (grid_lon, grid_lat), method="nearest")
+            u_grid[np.isnan(u_grid)] = u_nearest[np.isnan(u_grid)]
+
+        if np.isnan(v_grid).any():
+            v_nearest = griddata((lons, lats), v, (grid_lon, grid_lat), method="nearest")
+            v_grid[np.isnan(v_grid)] = v_nearest[np.isnan(v_grid)]
+
+        print("Remaining NaNs (u):", np.isnan(u_grid).sum())
+        print("Remaining NaNs (v):", np.isnan(v_grid).sum())
+
+        # -------------------------
+        # Balanced smoothing
+        # -------------------------
+        if self.smoothing_sigma and self.smoothing_sigma > 0:
+            print(f"\nApplying Gaussian smoothing (sigma={self.smoothing_sigma})...")
+            u_grid = gaussian_filter(u_grid, sigma=self.smoothing_sigma)
+            v_grid = gaussian_filter(v_grid, sigma=self.smoothing_sigma)
+
+        # -------------------------
+        # Flatten for leaflet-velocity
+        # -------------------------
+        u_flat = u_grid.flatten()
+        v_flat = v_grid.flatten()
+
+        nx = grid_lon.shape[1]
+        ny = grid_lat.shape[0]
+
+        dx = (lon_grid.max() - lon_grid.min()) / (nx - 1)
+        dy = (lat_grid.max() - lat_grid.min()) / (ny - 1)
+
+        print("\n--- OUTPUT GRID ---")
+        print("nx:", nx, "ny:", ny)
+        print("dx:", dx, "dy:", dy)
+        print("u length:", len(u_flat))
+        print("v length:", len(v_flat))
+
+        self.wind_u = u_flat
+        self.wind_v = v_flat
+        self.lon_min = lon_grid.min()
+        self.lat_max = lat_grid.max()
+        self.dx = dx
+        self.dy = dy
+        self.nx = nx
+        self.ny = ny
+
+    # -------------------------
+    # Save output
+    # -------------------------
+    def save(self, filename="./html/wind.json"):
+        header = {
+            "parameterCategory": 2,
+            "parameterNumber": 2,
+            "lo1": self.lon_min,
+            "la1": self.lat_max,
+            "dx": self.dx,
+            "dy": self.dy,
+            "nx": self.nx,
+            "ny": self.ny,
+            "refTime": self.ref_time
+        }
+
+        data = [
+            {
+                "header": header,
+                "data": self.wind_u.tolist()
+            },
+            {
+                "header": {**header, "parameterNumber": 3},
+                "data": self.wind_v.tolist()
+            }
+        ]
+
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=2)
+
+        print("\nSaved:", filename)
 
 
+# -------------------------
+# Run
+# -------------------------
 if __name__ == "__main__":
-    w = Windy(wind_downsample=60, msl_downsample=5)
-    w.save_wind(name='./html/wind.json')
-    w.save_msl(name='./html/msl.json')
+    w = Windy(
+        grid_size=150,
+        sample_size=10000,
+        smoothing_sigma=0.6
+    )
+
+    print("\nFetching...")
+    w.fetch()
+
+    print("Processing...")
+    w.process()
+
+    print("Saving...")
+    w.save()
+
+    print("\nDone.")
