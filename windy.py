@@ -113,6 +113,16 @@ class Windy:
 
         grid_lon, grid_lat = np.meshgrid(lon_grid, lat_grid)
 
+        msl_grid = griddata((lons, lats), msl, (grid_lon, grid_lat), method="cubic")
+
+        if np.isnan(msl_grid).any():
+            msl_linear = griddata((lons, lats), msl, (grid_lon, grid_lat), method="linear")
+            msl_grid[np.isnan(msl_grid)] = msl_linear[np.isnan(msl_grid)]
+
+        if np.isnan(msl_grid).any():
+            msl_nearest = griddata((lons, lats), msl, (grid_lon, grid_lat), method="nearest")
+            msl_grid[np.isnan(msl_grid)] = msl_nearest[np.isnan(msl_grid)]
+
         print("\n--- GRID ---")
         print("Grid shape:", grid_lon.shape)
 
@@ -165,6 +175,16 @@ class Windy:
         nx = grid_lon.shape[1]
         ny = grid_lat.shape[0]
 
+        self.msl_points = [
+            [
+                round(float(grid_lat[i, j]), 6),
+                round(float(grid_lon[i, j]), 6),
+                round(float(msl_grid[i, j]), 1)
+            ]
+            for i in range(ny)
+            for j in range(nx)
+        ]
+
         dx = (lon_grid.max() - lon_grid.min()) / (nx - 1)
         dy = (lat_grid.max() - lat_grid.min()) / (ny - 1)
 
@@ -182,9 +202,6 @@ class Windy:
         self.dy = dy
         self.nx = nx
         self.ny = ny
-
-        self.msl_points = [
-            [round(float(lat), 6), round(float(lon), 6), round(float(p), 1)] for lat, lon, p in zip(lats, lons, msl)]
 
     # -------------------------
     # Save output
