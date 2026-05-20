@@ -23,3 +23,32 @@ a {
 .leaflet-canvas-layer {
     opacity: 0.55;
 }
+
+.pressure-legend {
+    background: rgba(255, 255, 255, 0.85);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 16px;
+    color: #222;
+}
+
+.pressure-gradient {
+    width: 160px;
+    height: 12px;
+    margin: 4px 0;
+    background: linear-gradient(
+        to right,
+        #313695,
+        #74add1,
+        #ffffbf,
+        #fdae61,
+        #a50026
+    );
+}
+
+.pressure-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 160px;
+}

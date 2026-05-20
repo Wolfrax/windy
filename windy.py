@@ -80,6 +80,7 @@ class Windy:
 
         wd = np.array(self.wd_data["timeSeries"][0]["data"][self.param_names["wd"]])
         ws = np.array(self.ws_data["timeSeries"][0]["data"][self.param_names["ws"]])
+        msl = np.array(self.msl_data["timeSeries"][0]["data"][self.param_names["msl"]])
 
         print("\n--- INPUT DATA ---")
         print("Total points:", len(lons))
@@ -93,6 +94,7 @@ class Windy:
             lats = lats[idx]
             wd = wd[idx]
             ws = ws[idx]
+            msl = msl[idx]
 
             print("Downsampled to:", len(lons))
 
@@ -181,6 +183,9 @@ class Windy:
         self.nx = nx
         self.ny = ny
 
+        self.msl_points = [
+            [round(float(lat), 6), round(float(lon), 6), round(float(p), 1)] for lat, lon, p in zip(lats, lons, msl)]
+
     # -------------------------
     # Save output
     # -------------------------
@@ -212,6 +217,12 @@ class Windy:
             json.dump(data, f, indent=2)
 
         print("\nSaved:", filename)
+    
+    def save_msl(self, filename="./html/msl.json"):
+        with open(filename, "w") as f:
+            json.dump(self.msl_points, f, separators=(",", ":"))
+
+        print("\nSaved:", filename)
 
 
 # -------------------------
@@ -232,5 +243,6 @@ if __name__ == "__main__":
 
     print("Saving...")
     w.save()
+    w.save_msl()
 
     print("\nDone.")
