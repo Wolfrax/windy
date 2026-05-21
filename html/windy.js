@@ -105,12 +105,17 @@ $.getJSON("msl.json", function (data) {
 });
 */
 
-const PRESSURE_MIN = 980;
-const PRESSURE_MAX = 1035;
+//const PRESSURE_MIN = 980;
+//const PRESSURE_MAX = 1035;
+
+const PRESSURE_MIN = 1005;
+const PRESSURE_MAX = 1030;
 
 const heatmapLayer = new HeatmapOverlay({
-    radius: 12,
-    maxOpacity: 0.5,
+    radius: 20,
+    maxOpacity: 0.35,
+    //radius: 12,
+    //maxOpacity: 0.5,
     scaleRadius: false,
     useLocalExtrema: false,
     gradient: {
