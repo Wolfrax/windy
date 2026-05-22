@@ -123,7 +123,7 @@ class Windy:
             msl_nearest = griddata((lons, lats), msl, (grid_lon, grid_lat), method="nearest")
             msl_grid[np.isnan(msl_grid)] = msl_nearest[np.isnan(msl_grid)]
 
-        msl_grid = gaussian_filter(msl_grid, sigma=2.5)
+        msl_grid = gaussian_filter(msl_grid, sigma=2.0)
 
         print("\n--- GRID ---")
         print("Grid shape:", grid_lon.shape)
