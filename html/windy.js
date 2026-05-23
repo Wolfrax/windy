@@ -2,7 +2,7 @@ const PRESSURE_MIN = 1005;
 const PRESSURE_MAX = 1030;
 
 const heatmapLayer = new HeatmapOverlay({
-    radius: 20,
+    radius: 18,
     maxOpacity: 0.35,
     scaleRadius: false,
     useLocalExtrema: false,
@@ -140,14 +140,6 @@ $.getJSON("msl.json", function(data) {
         max: max + padding,
         data: []
     };
-
-/*
-    const msl = {
-        min: PRESSURE_MIN,
-        max: PRESSURE_MAX,
-        data: []
-    };
-*/
 
     for (let i = 0; i < data.length; i++) {
         msl.data.push({
