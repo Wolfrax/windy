@@ -141,7 +141,7 @@ $.getJSON("msl.json", function(data) {
         data: []
     };
 
-    CONSOLE.log("MSL min:", msl.min, "max:", msl.max);
+    console.log("MSL min:", msl.min, "max:", msl.max);
 
     for (let i = 0; i < data.length; i++) {
         msl.data.push({
