@@ -5,7 +5,7 @@ const heatmapLayer = new HeatmapOverlay({
     radius: 18,
     maxOpacity: 0.35,
     scaleRadius: false,
-    useLocalExtrema: false,
+    useLocalExtrema: true,
     gradient: {
         0.00: '#313695',
         0.25: '#74add1',
