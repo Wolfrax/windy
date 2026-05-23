@@ -129,11 +129,25 @@ $.getJSON("wind.json", function(data) {
 });
 
 $.getJSON("msl.json", function(data) {
+
+    const values = data.map(p => p[2]);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const padding = 1.0;
+
+    const msl = {
+        min: min - padding,
+        max: max + padding,
+        data: []
+    };
+
+/*
     const msl = {
         min: PRESSURE_MIN,
         max: PRESSURE_MAX,
         data: []
     };
+*/
 
     for (let i = 0; i < data.length; i++) {
         msl.data.push({
