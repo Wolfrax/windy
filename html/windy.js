@@ -133,7 +133,7 @@ $.getJSON("msl.json", function(data) {
     const values = data.map(p => p[2]);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const padding = 1.0;
+    const padding = 0.0;
 
     const msl = {
         min: min - padding,
