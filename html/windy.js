@@ -102,7 +102,7 @@ function addTimestampControl(refTime) {
     L.control.textbox({ position: 'topleft' }).addTo(map);
 }
 
-function addPressureLegend() {
+function addPressureLegend(min, max) {
     const legend = L.control({ position: "bottomright" });
 
     legend.onAdd = function(map) {
@@ -112,8 +112,8 @@ function addPressureLegend() {
             <div><strong>Pressure</strong></div>
             <div class="pressure-gradient"></div>
             <div class="pressure-labels">
-                <span>${PRESSURE_MIN} hPa</span>
-                <span>${PRESSURE_MAX} hPa</span>
+                <span>${min} hPa</span>
+                <span>${max} hPa</span>
             </div>
         `;
 
@@ -133,13 +133,15 @@ $.getJSON("msl.json", function(data) {
     const values = data.map(p => p[2]);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const padding = 0.0;
+    const padding = 1.0;
 
     const msl = {
         min: min - padding,
         max: max + padding,
         data: []
     };
+
+    CONSOLE.log("MSL min:", msl.min, "max:", msl.max);
 
     for (let i = 0; i < data.length; i++) {
         msl.data.push({
@@ -150,5 +152,5 @@ $.getJSON("msl.json", function(data) {
     }
 
     heatmapLayer.setData(msl);
-    addPressureLegend();
+    addPressureLegend(msl.min, msl.max);
 });
