@@ -2,7 +2,7 @@ const PRESSURE_MIN = 1005;
 const PRESSURE_MAX = 1030;
 
 const heatmapLayer = new HeatmapOverlay({
-    radius: 22,
+    radius: 18,
     maxOpacity: 0.35,
     scaleRadius: false,
     useLocalExtrema: false,
