@@ -4,7 +4,7 @@ const PRESSURE_MAX = 1030;
 const heatmapLayer = new HeatmapOverlay({
     radius: 18,
     maxOpacity: 0.35,
-    scaleRadius: false,
+    scaleRadius: true,
     useLocalExtrema: true,
     gradient: {
         0.00: '#313695',
