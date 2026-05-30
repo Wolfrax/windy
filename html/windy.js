@@ -169,15 +169,15 @@ Promise.all([
         mslData.map(p => [p[0], p[1]])
     );
 
-    // Fill the viewport with the heatmap box.
-    // This differs from fitBounds(): it may crop slightly vertically/horizontally,
-    // but avoids the large empty map areas outside the heatmap rectangle.
-    const zoom = map.getBoundsZoom(heatmapBounds, true);
-    map.setView(heatmapBounds.getCenter(), zoom);
+    // Show the full Nordic/Baltic box, but with very little extra map around it.
+    map.fitBounds(heatmapBounds, {
+        paddingTopLeft: [10, 70],
+        paddingBottomRight: [10, 10],
+        maxZoom: 5
+    });
 
-    // Limit panning outside the generated data area.
-    map.setMaxBounds(heatmapBounds.pad(0.02));
-    map.options.maxBoundsViscosity = 1.0;
+    map.setMaxBounds(heatmapBounds.pad(0.10));
+    map.options.maxBoundsViscosity = 0.8;
 
 }).catch(err => {
     console.error("Failed to load weather data:", err);
