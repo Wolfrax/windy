@@ -95,7 +95,8 @@ a {
     margin-bottom: 20px;
 }
 
-#wind-style {
+#wind-style,
+#pressure-style {
     width: 100%;
     padding: 8px;
     font-size: 14px;
@@ -107,7 +108,6 @@ a {
 .pressure-legend {
     background: transparent;
     padding: 0;
-    border-radius: 0;
     font-size: 13px;
     line-height: 16px;
     color: #222;
@@ -131,6 +131,13 @@ a {
     display: flex;
     justify-content: space-between;
     width: 100%;
+}
+
+.isobar-sample {
+    width: 100%;
+    height: 0;
+    border-top: 3px solid #111;
+    margin: 8px 0;
 }
 
 #weather-info {
@@ -163,6 +170,15 @@ a {
     float: none;
     box-shadow: none;
     border-radius: 6px;
+}
+
+.leaflet-tooltip.isobar-label {
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(0,0,0,0.25);
+    color: #111;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 1px 4px;
 }
 
 @media (max-width: 1000px) {

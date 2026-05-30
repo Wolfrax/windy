@@ -1,5 +1,9 @@
 let currentWindData = null;
+let currentMslData = null;
 let windStyle = "dark";
+let pressureStyle = "isobar";
+
+let isobarLayer = L.layerGroup();
 
 function getWindColorScale(style) {
     if (style === "colored") {
@@ -67,7 +71,7 @@ const map = L.map("map", {
     layers: [
         Positron,
         velocityLayer,
-        heatmapLayer
+        isobarLayer
     ]
 });
 
@@ -82,7 +86,7 @@ const layerControl = L.control.layers(
     {},
     {
         "Wind": velocityLayer,
-        "Pressure": heatmapLayer
+        "Pressure": isobarLayer
     },
     {
         collapsed: false
@@ -116,9 +120,7 @@ function formatRefTime(refTime) {
     );
 
     const parts = formatter.formatToParts(date);
-
-    const get = (type) =>
-        parts.find(p => p.type === type).value;
+    const get = (type) => parts.find(p => p.type === type).value;
 
     return (
         `${get("year")}-${get("month")}-${get("day")} ` +
@@ -140,38 +142,43 @@ function setTimestamp(refTime) {
 
 function addPressureLegend(min, max) {
     const container =
-        document.getElementById(
-            "pressure-legend-container"
-        );
+        document.getElementById("pressure-legend-container");
 
     if (!container) {
         return;
     }
 
+    if (pressureStyle === "isobar") {
+        container.innerHTML = `
+            <div class="pressure-legend">
+                <div><strong>Isobars</strong></div>
+                <div class="isobar-sample"></div>
+                <div>${min.toFixed(1)} – ${max.toFixed(1)} hPa</div>
+                <div>Contours every 2 hPa</div>
+            </div>
+        `;
+        return;
+    }
+
     container.innerHTML = `
         <div class="pressure-legend">
-            <div>
-                <strong>Pressure</strong>
-            </div>
-
+            <div><strong>Pressure Heatmap</strong></div>
             <div class="pressure-gradient"></div>
-
             <div class="pressure-labels">
-                <span>${min} hPa</span>
-                <span>${max} hPa</span>
+                <span>${min.toFixed(1)} hPa</span>
+                <span>${max.toFixed(1)} hPa</span>
             </div>
+            <div>Normalized 0–1 for color scaling</div>
         </div>
     `;
 }
 
 function showLoading() {
-    document.getElementById("loading").style.display =
-        "flex";
+    document.getElementById("loading").style.display = "flex";
 }
 
 function hideLoading() {
-    document.getElementById("loading").style.display =
-        "none";
+    document.getElementById("loading").style.display = "none";
 }
 
 function refreshWindLayerStyle() {
@@ -187,6 +194,238 @@ function refreshWindLayerStyle() {
     }
 }
 
+function uniqueSorted(values) {
+    return Array.from(new Set(values)).sort((a, b) => a - b);
+}
+
+function buildPressureGrid(mslData) {
+    const lats = uniqueSorted(mslData.map(p => p[0]));
+    const lngs = uniqueSorted(mslData.map(p => p[1]));
+
+    const latIndex = new Map();
+    const lngIndex = new Map();
+
+    lats.forEach((v, i) => latIndex.set(v, i));
+    lngs.forEach((v, i) => lngIndex.set(v, i));
+
+    const grid = Array.from(
+        { length: lats.length },
+        () => Array(lngs.length).fill(null)
+    );
+
+    mslData.forEach(p => {
+        const i = latIndex.get(p[0]);
+        const j = lngIndex.get(p[1]);
+        grid[i][j] = p[2];
+    });
+
+    return {
+        lats: lats,
+        lngs: lngs,
+        grid: grid
+    };
+}
+
+function interpolatePoint(p1, p2, level) {
+    const denom = p2.value - p1.value;
+
+    if (Math.abs(denom) < 0.000001) {
+        return [
+            (p1.lat + p2.lat) / 2,
+            (p1.lng + p2.lng) / 2
+        ];
+    }
+
+    const t = (level - p1.value) / denom;
+
+    return [
+        p1.lat + t * (p2.lat - p1.lat),
+        p1.lng + t * (p2.lng - p1.lng)
+    ];
+}
+
+function createIsobarSegments(mslData, interval) {
+    const pressureGrid = buildPressureGrid(mslData);
+
+    const lats = pressureGrid.lats;
+    const lngs = pressureGrid.lngs;
+    const grid = pressureGrid.grid;
+
+    const values = mslData.map(p => p[2]);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+
+    const start = Math.ceil(min / interval) * interval;
+    const end = Math.floor(max / interval) * interval;
+
+    const segments = [];
+
+    for (let level = start; level <= end; level += interval) {
+        for (let i = 0; i < lats.length - 1; i++) {
+            for (let j = 0; j < lngs.length - 1; j++) {
+                const bl = {
+                    lat: lats[i],
+                    lng: lngs[j],
+                    value: grid[i][j]
+                };
+
+                const br = {
+                    lat: lats[i],
+                    lng: lngs[j + 1],
+                    value: grid[i][j + 1]
+                };
+
+                const tr = {
+                    lat: lats[i + 1],
+                    lng: lngs[j + 1],
+                    value: grid[i + 1][j + 1]
+                };
+
+                const tl = {
+                    lat: lats[i + 1],
+                    lng: lngs[j],
+                    value: grid[i + 1][j]
+                };
+
+                if (
+                    bl.value === null ||
+                    br.value === null ||
+                    tr.value === null ||
+                    tl.value === null
+                ) {
+                    continue;
+                }
+
+                const points = [];
+
+                if ((bl.value < level && br.value >= level) ||
+                    (bl.value >= level && br.value < level)) {
+                    points.push(interpolatePoint(bl, br, level));
+                }
+
+                if ((br.value < level && tr.value >= level) ||
+                    (br.value >= level && tr.value < level)) {
+                    points.push(interpolatePoint(br, tr, level));
+                }
+
+                if ((tl.value < level && tr.value >= level) ||
+                    (tl.value >= level && tr.value < level)) {
+                    points.push(interpolatePoint(tl, tr, level));
+                }
+
+                if ((bl.value < level && tl.value >= level) ||
+                    (bl.value >= level && tl.value < level)) {
+                    points.push(interpolatePoint(bl, tl, level));
+                }
+
+                if (points.length === 2) {
+                    segments.push({
+                        level: level,
+                        points: points
+                    });
+                } else if (points.length === 4) {
+                    segments.push({
+                        level: level,
+                        points: [points[0], points[1]]
+                    });
+
+                    segments.push({
+                        level: level,
+                        points: [points[2], points[3]]
+                    });
+                }
+            }
+        }
+    }
+
+    console.log("Isobar segments:", segments.length);
+
+    return segments;
+}
+
+function renderIsobars(mslData) {
+    isobarLayer.clearLayers();
+
+    const segments = createIsobarSegments(mslData, 2);
+
+    segments.forEach((segment, index) => {
+        const line = L.polyline(
+            segment.points,
+            {
+                color: "#111111",
+                weight: segment.level % 4 === 0 ? 2.2 : 1.4,
+                opacity: 0.85
+            }
+        );
+
+        if (index % 90 === 0) {
+            line.bindTooltip(
+                `${segment.level.toFixed(0)} hPa`,
+                {
+                    permanent: true,
+                    direction: "center",
+                    className: "isobar-label"
+                }
+            );
+        }
+
+        line.addTo(isobarLayer);
+    });
+}
+
+function renderHeatmap(mslData, min, max) {
+    const range = max - min;
+
+    const normalizedData = mslData.map(p => ({
+        lat: p[0],
+        lng: p[1],
+        value: range > 0 ? (p[2] - min) / range : 0.5
+    }));
+
+    const normalizedValues = normalizedData.map(p => p.value);
+
+    console.log("Pressure raw min:", min);
+    console.log("Pressure raw max:", max);
+    console.log("Pressure raw range:", range);
+    console.log("Heatmap normalized min:", Math.min(...normalizedValues));
+    console.log("Heatmap normalized max:", Math.max(...normalizedValues));
+    console.log("Heatmap point count:", normalizedData.length);
+
+    heatmapLayer.setData({
+        min: 0,
+        max: 1,
+        data: normalizedData
+    });
+}
+
+function refreshPressureDisplay() {
+    if (!currentMslData) {
+        return;
+    }
+
+    const values = currentMslData.map(p => p[2]);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+
+    console.log("Pressure style:", pressureStyle);
+    console.log("Pressure data points:", currentMslData.length);
+    console.log("Pressure min hPa:", min);
+    console.log("Pressure max hPa:", max);
+
+    map.removeLayer(heatmapLayer);
+    map.removeLayer(isobarLayer);
+
+    if (pressureStyle === "heatmap") {
+        renderHeatmap(currentMslData, min, max);
+        map.addLayer(heatmapLayer);
+    } else {
+        renderIsobars(currentMslData);
+        map.addLayer(isobarLayer);
+    }
+
+    addPressureLegend(min, max);
+}
+
 const windStyleSelector =
     document.getElementById("wind-style");
 
@@ -194,6 +433,16 @@ if (windStyleSelector) {
     windStyleSelector.addEventListener("change", function(e) {
         windStyle = e.target.value;
         refreshWindLayerStyle();
+    });
+}
+
+const pressureStyleSelector =
+    document.getElementById("pressure-style");
+
+if (pressureStyleSelector) {
+    pressureStyleSelector.addEventListener("change", function(e) {
+        pressureStyle = e.target.value;
+        refreshPressureDisplay();
     });
 }
 
@@ -206,6 +455,7 @@ Promise.all([
 
 .then(([windData, mslData]) => {
     currentWindData = windData;
+    currentMslData = mslData;
 
     velocityLayer.setData(windData);
 
@@ -213,33 +463,7 @@ Promise.all([
         windData[0].header.refTime
     );
 
-    const values =
-        mslData.map(p => p[2]);
-
-    const min =
-        Math.min(...values);
-
-    const max =
-        Math.max(...values);
-
-    const padding = 1.0;
-
-    const msl = {
-        min: min - padding,
-        max: max + padding,
-        data: mslData.map(p => ({
-            lat: p[0],
-            lng: p[1],
-            value: p[2]
-        }))
-    };
-
-    heatmapLayer.setData(msl);
-
-    addPressureLegend(
-        msl.min,
-        msl.max
-    );
+    refreshPressureDisplay();
 
     const heatmapBounds =
         L.latLngBounds(
@@ -263,8 +487,7 @@ Promise.all([
         heatmapBounds.pad(0.10)
     );
 
-    map.options.maxBoundsViscosity =
-        0.8;
+    map.options.maxBoundsViscosity = 0.8;
 
     setTimeout(() => {
         map.invalidateSize();
