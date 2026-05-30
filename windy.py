@@ -78,6 +78,10 @@ class Windy:
         lons = coords[:, 0]
         lats = coords[:, 1]
 
+        wd = np.array(self.wd_data["timeSeries"][0]["data"][self.param_names["wd"]])
+        ws = np.array(self.ws_data["timeSeries"][0]["data"][self.param_names["ws"]])
+        msl = np.array(self.msl_data["timeSeries"][0]["data"][self.param_names["msl"]])
+
         # New
         LAT_MIN = 54.0
         LAT_MAX = 72.0
@@ -97,10 +101,6 @@ class Windy:
         ws = ws[mask]
         msl = msl[mask]
         # End new
-
-        wd = np.array(self.wd_data["timeSeries"][0]["data"][self.param_names["wd"]])
-        ws = np.array(self.ws_data["timeSeries"][0]["data"][self.param_names["ws"]])
-        msl = np.array(self.msl_data["timeSeries"][0]["data"][self.param_names["msl"]])
 
         print("\n--- INPUT DATA ---")
         print("Total points:", len(lons))
