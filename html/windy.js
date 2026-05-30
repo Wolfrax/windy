@@ -1,28 +1,18 @@
 let currentWindData = null;
 let currentMslData = null;
-let windStyle = "colored";
 let pressureStyle = "none";
-
 
 let isobarLayer = L.layerGroup();
 
-function getWindColorScale(style) {
-    if (style === "colored") {
-        return [
-            "#00429d",
-            "#4771b2",
-            "#73a2c6",
-            "#a5d5d8",
-            "#ffffe0",
-            "#fdae61",
-            "#d7191c"
-        ];
-    }
-
-    return [
-        "rgb(20,40,80)"
-    ];
-}
+const WIND_COLOR_SCALE = [
+    "#00429d",
+    "#4771b2",
+    "#73a2c6",
+    "#a5d5d8",
+    "#ffffe0",
+    "#fdae61",
+    "#d7191c"
+];
 
 const heatmapLayer = new HeatmapOverlay({
     radius: 18,
@@ -58,7 +48,7 @@ const velocityLayer = new L.velocityLayer({
     minVelocity: 0,
     maxVelocity: 10,
     velocityScale: 0.010,
-    colorScale: getWindColorScale(windStyle)
+    colorScale: WIND_COLOR_SCALE
 });
 
 const Positron = L.tileLayer(
@@ -83,25 +73,6 @@ const nordicBounds = [
 ];
 
 map.fitBounds(nordicBounds);
-
-const layerControl = L.control.layers(
-    {},
-    {
-        "Wind": velocityLayer
-    },
-    {
-        collapsed: false
-    }
-).addTo(map);
-
-const layerControlContainer =
-    document.getElementById("layer-control-container");
-
-if (layerControlContainer) {
-    layerControlContainer.appendChild(
-        layerControl.getContainer()
-    );
-}
 
 function formatRefTime(refTime) {
     const date = new Date(refTime + "Z");
@@ -190,19 +161,6 @@ function showLoading() {
 
 function hideLoading() {
     document.getElementById("loading").style.display = "none";
-}
-
-function refreshWindLayerStyle() {
-    velocityLayer.options.colorScale =
-        getWindColorScale(windStyle);
-
-    if (currentWindData) {
-        velocityLayer.setData(currentWindData);
-    }
-
-    if (typeof velocityLayer._clearAndRestart === "function") {
-        velocityLayer._clearAndRestart();
-    }
 }
 
 function uniqueSorted(values) {
@@ -437,16 +395,6 @@ function refreshPressureDisplay() {
     addPressureLegend(min, max);
 }
 
-const windStyleSelector =
-    document.getElementById("wind-style");
-
-if (windStyleSelector) {
-    windStyleSelector.addEventListener("change", function(e) {
-        windStyle = e.target.value;
-        refreshWindLayerStyle();
-    });
-}
-
 const pressureStyleSelector =
     document.getElementById("pressure-style");
 
@@ -489,6 +437,7 @@ Promise.all([
             padding: [8, 8]
         }
     );
+
     map.setZoom(
         map.getZoom() + 0.5
     );
@@ -508,6 +457,7 @@ Promise.all([
                 padding: [8, 8]
             }
         );
+
         map.setZoom(
             map.getZoom() + 0.5
         );

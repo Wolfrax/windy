@@ -95,7 +95,6 @@ a {
     margin-bottom: 20px;
 }
 
-#wind-style,
 #pressure-style {
     width: 100%;
     padding: 8px;
@@ -163,13 +162,6 @@ a {
     font-size: 24px;
     font-weight: bold;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-}
-
-.leaflet-control-layers {
-    position: static;
-    float: none;
-    box-shadow: none;
-    border-radius: 6px;
 }
 
 .leaflet-tooltip.isobar-label {

@@ -31,19 +31,6 @@
             <h2>Weather</h2>
 
             <div class="panel-section">
-                <h3>Layers</h3>
-                <div id="layer-control-container"></div>
-            </div>
-
-            <div class="panel-section">
-                <h3>Wind Style</h3>
-                <select id="wind-style">
-                    <option value="dark">Dark</option>
-                    <option value="colored" selected>Colored</option>
-                </select>
-            </div>
-
-            <div class="panel-section">
                 <h3>Pressure Display</h3>
                 <select id="pressure-style">
                     <option value="none" selected>None</option>
@@ -60,7 +47,7 @@
             <div class="panel-section">
                 <h3>Info</h3>
                 <div id="weather-info">
-                    Wind and pressure data loaded from local JSON files.
+                    Wind animation is always enabled. Pressure overlay can be selected above.
                 </div>
             </div>
         </aside>
@@ -73,6 +60,6 @@
 <script src="leaflet-velocity.js"></script>
 <script src="heatmap.js"></script>
 <script src="leaflet-heatmap.js"></script>
-<script src="windy.js?version=5"></script>
+<script src="windy.js?version=6"></script>
 </body>
 </html>
