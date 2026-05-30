@@ -68,6 +68,8 @@ const Positron = L.tileLayer(
 );
 
 const map = L.map("map", {
+    zoomSnap: 0.25,
+    zoomDelta: 0.25,
     layers: [
         Positron,
         velocityLayer,
@@ -478,6 +480,9 @@ Promise.all([
             padding: [8, 8]
         }
     );
+    map.setZoom(
+        map.getZoom() + 0.5
+    );
 
     map.setMaxBounds(
         heatmapBounds.pad(0.10)
@@ -493,6 +498,9 @@ Promise.all([
             {
                 padding: [8, 8]
             }
+        );
+        map.setZoom(
+            map.getZoom() + 0.5
         );
 
     }, 100);
