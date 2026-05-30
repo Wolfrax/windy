@@ -4,23 +4,56 @@
     <title>Windy</title>
     <meta charset="utf-8"/>
     <link rel="shortcut icon" href="https://www.viltstigen.se/favicon.png">
+
+    <link rel="stylesheet" href="https://npmcdn.com/leaflet@1.1.0/dist/leaflet.css"/>
+    <link rel="stylesheet" href="leaflet-velocity.css"/>
+    <link rel="stylesheet" href="windy.css"/>
 </head>
 <body>
 <div id="loading">
     <div class="loading-box">Loading weather data...</div>
 </div>
-<div id="map"></div>
+
+<div id="page">
+    <header id="topbar">
+        <div id="app-title">Windy</div>
+        <div id="timestamp-panel">Loading forecast time...</div>
+    </header>
+
+    <main id="content">
+        <section id="map-frame">
+            <div id="map"></div>
+        </section>
+
+        <aside id="side-panel">
+            <h2>Weather</h2>
+
+            <div class="panel-section">
+                <h3>Layers</h3>
+                <div id="layer-control-container"></div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Pressure</h3>
+                <div id="pressure-legend-container"></div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Info</h3>
+                <div id="weather-info">
+                    Wind and pressure data loaded from local JSON files.
+                </div>
+            </div>
+        </aside>
+    </main>
+</div>
 
 <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
-<link rel="stylesheet" href="https://npmcdn.com/leaflet@1.1.0/dist/leaflet.css"/>
 <script src="https://npmcdn.com/leaflet@1.1.0/dist/leaflet.js"></script>
 
-<link rel="stylesheet" href="leaflet-velocity.css"/>
 <script src="leaflet-velocity.js"></script>
-
-<link rel="stylesheet" href="windy.css"/>
 <script src="heatmap.js"></script>
 <script src="leaflet-heatmap.js"></script>
-<script src="windy.js?version=1"></script>
+<script src="windy.js?version=3"></script>
 </body>
 </html>

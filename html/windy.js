@@ -47,8 +47,6 @@ const map = L.map("map", {
     layers: [USGS_USImagery, velocityLayer, heatmapLayer]
 });
 
-// Initial fallback view while data is loading.
-// This is replaced by the actual heatmap bounds after msl.json is loaded.
 const nordicBounds = [
     [54, 5],
     [71, 31]
@@ -56,7 +54,7 @@ const nordicBounds = [
 
 map.fitBounds(nordicBounds);
 
-L.control.layers(
+const layerControl = L.control.layers(
     {
         "Satellite": USGS_USImagery
     },
@@ -69,65 +67,68 @@ L.control.layers(
     }
 ).addTo(map);
 
-function addTimestampControl(refTime) {
-    L.Control.textbox = L.Control.extend({
-        onAdd: function(map) {
-            const text = L.DomUtil.create('div');
-            text.id = "info_text";
+const layerControlContainer = document.getElementById("layer-control-container");
+if (layerControlContainer) {
+    layerControlContainer.appendChild(layerControl.getContainer());
+}
 
-            const date = new Date(refTime + "Z");
+function formatRefTime(refTime) {
+    const date = new Date(refTime + "Z");
 
-            const formatter = new Intl.DateTimeFormat("sv-SE", {
-                timeZone: "Europe/Stockholm",
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false
-            });
-
-            const parts = formatter.formatToParts(date);
-            const get = (type) => parts.find(p => p.type === type).value;
-
-            const formatted =
-                `${get("year")}-${get("month")}-${get("day")} ` +
-                `${get("hour")}:${get("minute")}:${get("second")}`;
-
-            text.innerHTML = `<div class="timestamp-heading">${formatted}</div>`;
-            return text;
-        },
-
-        onRemove: function(map) {}
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "Europe/Stockholm",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
     });
 
-    L.control.textbox = function(opts) {
-        return new L.Control.textbox(opts);
-    };
+    const parts = formatter.formatToParts(date);
+    const get = (type) => parts.find(p => p.type === type).value;
 
-    L.control.textbox({ position: 'topleft' }).addTo(map);
+    return (
+        `${get("year")}-${get("month")}-${get("day")} ` +
+        `${get("hour")}:${get("minute")}:${get("second")}`
+    );
+}
+
+function setTimestamp(refTime) {
+    const timestampPanel = document.getElementById("timestamp-panel");
+    if (timestampPanel) {
+        timestampPanel.textContent = formatRefTime(refTime);
+    }
 }
 
 function addPressureLegend(min, max) {
-    const legend = L.control({ position: "bottomright" });
+    const container = document.getElementById("pressure-legend-container");
 
-    legend.onAdd = function(map) {
-        const div = L.DomUtil.create("div", "pressure-legend");
-
-        div.innerHTML = `
+    const html = `
+        <div class="pressure-legend">
             <div><strong>Pressure</strong></div>
             <div class="pressure-gradient"></div>
             <div class="pressure-labels">
                 <span>${min} hPa</span>
                 <span>${max} hPa</span>
             </div>
-        `;
+        </div>
+    `;
 
-        return div;
-    };
+    if (container) {
+        container.innerHTML = html;
+    } else {
+        const legend = L.control({ position: "bottomright" });
 
-    legend.addTo(map);
+        legend.onAdd = function(map) {
+            const div = L.DomUtil.create("div", "pressure-legend");
+            div.innerHTML = html;
+            return div;
+        };
+
+        legend.addTo(map);
+    }
 }
 
 function showLoading() {
@@ -145,7 +146,7 @@ Promise.all([
     $.getJSON("msl.json")
 ]).then(([windData, mslData]) => {
     velocityLayer.setData(windData);
-    addTimestampControl(windData[0].header.refTime);
+    setTimestamp(windData[0].header.refTime);
 
     const values = mslData.map(p => p[2]);
     const min = Math.min(...values);
@@ -169,15 +170,19 @@ Promise.all([
         mslData.map(p => [p[0], p[1]])
     );
 
-    // Show the full Nordic/Baltic box, but with very little extra map around it.
     map.fitBounds(heatmapBounds, {
-        paddingTopLeft: [10, 70],
-        paddingBottomRight: [10, 10],
-        maxZoom: 5
+        padding: [8, 8]
     });
 
     map.setMaxBounds(heatmapBounds.pad(0.10));
     map.options.maxBoundsViscosity = 0.8;
+
+    setTimeout(() => {
+        map.invalidateSize();
+        map.fitBounds(heatmapBounds, {
+            padding: [8, 8]
+        });
+    }, 100);
 
 }).catch(err => {
     console.error("Failed to load weather data:", err);
