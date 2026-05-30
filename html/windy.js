@@ -479,10 +479,6 @@ Promise.all([
         }
     );
 
-    map.setZoom(
-        map.getZoom() + 1
-    );
-
     map.setMaxBounds(
         heatmapBounds.pad(0.10)
     );
@@ -497,10 +493,6 @@ Promise.all([
             {
                 padding: [8, 8]
             }
-        );
-
-        map.setZoom(
-            map.getZoom() + 1
         );
 
     }, 100);
