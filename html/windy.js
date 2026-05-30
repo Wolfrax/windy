@@ -47,9 +47,6 @@ const map = L.map("map", {
     layers: [USGS_USImagery, velocityLayer, heatmapLayer]
 });
 
-//map.setView([62.386843596239835, 16.32126446584757], 5);
-//map.setView([62.0, 18.0], 4);
-
 const nordicBounds = [
     [54, 5],
     [71, 31]
@@ -97,7 +94,7 @@ function addTimestampControl(refTime) {
                 `${get("year")}-${get("month")}-${get("day")} ` +
                 `${get("hour")}:${get("minute")}:${get("second")}`;
 
-            text.innerHTML = "<h1>" + formatted + "</h1>";
+            text.innerHTML = `<div class="timestamp-heading">${formatted}</div>`;
             return text;
         },
 
@@ -132,6 +129,56 @@ function addPressureLegend(min, max) {
     legend.addTo(map);
 }
 
+function showLoading() {
+    document.getElementById("loading").style.display = "flex";
+}
+
+function hideLoading() {
+    document.getElementById("loading").style.display = "none";
+}
+
+showLoading();
+
+Promise.all([
+    $.getJSON("wind.json"),
+    $.getJSON("msl.json")
+]).then(([windData, mslData]) => {
+    velocityLayer.setData(windData);
+    addTimestampControl(windData[0].header.refTime);
+
+    const values = mslData.map(p => p[2]);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const padding = 1.0;
+
+    const msl = {
+        min: min - padding,
+        max: max + padding,
+        data: mslData.map(p => ({
+            lat: p[0],
+            lng: p[1],
+            value: p[2]
+        }))
+    };
+
+    heatmapLayer.setData(msl);
+    addPressureLegend(msl.min, msl.max);
+
+    const heatmapBounds = L.latLngBounds(
+        mslData.map(p => [p[0], p[1]])
+    );
+
+    map.fitBounds(heatmapBounds, {
+        padding: [20, 20]
+    });
+
+}).catch(err => {
+    console.error("Failed to load weather data:", err);
+    alert("Failed to load weather data");
+}).finally(() => {
+    hideLoading();
+});
+/*
 $.getJSON("wind.json", function(data) {
     velocityLayer.setData(data);
     addTimestampControl(data[0].header.refTime);
@@ -162,4 +209,4 @@ $.getJSON("msl.json", function(data) {
 
     heatmapLayer.setData(msl);
     addPressureLegend(msl.min, msl.max);
-});
+}); */

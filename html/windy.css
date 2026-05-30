@@ -48,3 +48,34 @@ a {
     justify-content: space-between;
     width: 160px;
 }
+
+#loading {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.loading-box {
+    background: white;
+    color: black;
+    padding: 18px 28px;
+    border-radius: 8px;
+    font-size: 24px;
+    font-weight: bold;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+.timestamp-heading {
+    background: rgba(255, 255, 255, 0.85);
+    color: black;
+    font-size: 28px;
+    font-weight: 800;
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-shadow: 0 1px 1px white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
