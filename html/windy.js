@@ -439,7 +439,7 @@ Promise.all([
     );
 
     map.setZoom(
-        map.getZoom() + 0.5
+        map.getZoom() + 0.25
     );
 
     map.setMaxBounds(
@@ -459,7 +459,7 @@ Promise.all([
         );
 
         map.setZoom(
-            map.getZoom() + 0.5
+            map.getZoom() + 0.25
         );
 
     }, 100);
