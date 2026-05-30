@@ -1,6 +1,3 @@
-const PRESSURE_MIN = 1005;
-const PRESSURE_MAX = 1030;
-
 const heatmapLayer = new HeatmapOverlay({
     radius: 18,
     maxOpacity: 0.35,
@@ -36,16 +33,46 @@ const velocityLayer = new L.velocityLayer({
     colorScale: ["rgb(255,255,255)"]
 });
 
-const USGS_USImagery = L.tileLayer(
-    'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 20,
-        attribution: 'Tiles courtesy of the <a href="https://usgs.gov/">U.S. Geological Survey</a>'
+//
+// Base maps
+//
+
+const Positron = L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    {
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
     }
 );
 
+const DarkMatter = L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    {
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+    }
+);
+
+const EsriSatellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+        attribution: 'Tiles &copy; Esri'
+    }
+);
+
+//
+// Map
+//
+
 const map = L.map("map", {
-    layers: [USGS_USImagery, velocityLayer, heatmapLayer]
+    layers: [
+        Positron,
+        velocityLayer,
+        heatmapLayer
+    ]
 });
+
+//
+// Nordic fallback view while loading
+//
 
 const nordicBounds = [
     [54, 5],
@@ -54,9 +81,15 @@ const nordicBounds = [
 
 map.fitBounds(nordicBounds);
 
+//
+// Layer control
+//
+
 const layerControl = L.control.layers(
     {
-        "Satellite": USGS_USImagery
+        "Light": Positron,
+        "Dark": DarkMatter,
+        "Satellite": EsriSatellite
     },
     {
         "Wind": velocityLayer,
@@ -67,27 +100,41 @@ const layerControl = L.control.layers(
     }
 ).addTo(map);
 
-const layerControlContainer = document.getElementById("layer-control-container");
+const layerControlContainer =
+    document.getElementById("layer-control-container");
+
 if (layerControlContainer) {
-    layerControlContainer.appendChild(layerControl.getContainer());
+    layerControlContainer.appendChild(
+        layerControl.getContainer()
+    );
 }
 
+//
+// Timestamp
+//
+
 function formatRefTime(refTime) {
+
     const date = new Date(refTime + "Z");
 
-    const formatter = new Intl.DateTimeFormat("sv-SE", {
-        timeZone: "Europe/Stockholm",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false
-    });
+    const formatter = new Intl.DateTimeFormat(
+        "sv-SE",
+        {
+            timeZone: "Europe/Stockholm",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false
+        }
+    );
 
     const parts = formatter.formatToParts(date);
-    const get = (type) => parts.find(p => p.type === type).value;
+
+    const get = (type) =>
+        parts.find(p => p.type === type).value;
 
     return (
         `${get("year")}-${get("month")}-${get("day")} ` +
@@ -96,62 +143,108 @@ function formatRefTime(refTime) {
 }
 
 function setTimestamp(refTime) {
-    const timestampPanel = document.getElementById("timestamp-panel");
-    if (timestampPanel) {
-        timestampPanel.textContent = formatRefTime(refTime);
+
+    const timestampPanel =
+        document.getElementById("timestamp-panel");
+
+    if (!timestampPanel) {
+        return;
     }
+
+    timestampPanel.textContent =
+        formatRefTime(refTime);
 }
 
-function addPressureLegend(min, max) {
-    const container = document.getElementById("pressure-legend-container");
+//
+// Pressure legend
+//
 
-    const html = `
+function addPressureLegend(min, max) {
+
+    const container =
+        document.getElementById(
+            "pressure-legend-container"
+        );
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = `
         <div class="pressure-legend">
-            <div><strong>Pressure</strong></div>
+            <div>
+                <strong>Pressure</strong>
+            </div>
+
             <div class="pressure-gradient"></div>
+
             <div class="pressure-labels">
                 <span>${min} hPa</span>
                 <span>${max} hPa</span>
             </div>
         </div>
     `;
-
-    if (container) {
-        container.innerHTML = html;
-    } else {
-        const legend = L.control({ position: "bottomright" });
-
-        legend.onAdd = function(map) {
-            const div = L.DomUtil.create("div", "pressure-legend");
-            div.innerHTML = html;
-            return div;
-        };
-
-        legend.addTo(map);
-    }
 }
 
+//
+// Loading
+//
+
 function showLoading() {
-    document.getElementById("loading").style.display = "flex";
+    document.getElementById("loading").style.display =
+        "flex";
 }
 
 function hideLoading() {
-    document.getElementById("loading").style.display = "none";
+    document.getElementById("loading").style.display =
+        "none";
 }
+
+//
+// Load weather data
+//
 
 showLoading();
 
 Promise.all([
     $.getJSON("wind.json"),
     $.getJSON("msl.json")
-]).then(([windData, mslData]) => {
-    velocityLayer.setData(windData);
-    setTimestamp(windData[0].header.refTime);
+])
 
-    const values = mslData.map(p => p[2]);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+.then(([windData, mslData]) => {
+
+    //
+    // Wind
+    //
+
+    velocityLayer.setData(windData);
+
+    //
+    // Timestamp
+    //
+
+    setTimestamp(
+        windData[0].header.refTime
+    );
+
+    //
+    // Pressure range
+    //
+
+    const values =
+        mslData.map(p => p[2]);
+
+    const min =
+        Math.min(...values);
+
+    const max =
+        Math.max(...values);
+
     const padding = 1.0;
+
+    //
+    // Heatmap
+    //
 
     const msl = {
         min: min - padding,
@@ -164,29 +257,89 @@ Promise.all([
     };
 
     heatmapLayer.setData(msl);
-    addPressureLegend(msl.min, msl.max);
 
-    const heatmapBounds = L.latLngBounds(
-        mslData.map(p => [p[0], p[1]])
+    addPressureLegend(
+        msl.min,
+        msl.max
     );
 
-    map.fitBounds(heatmapBounds, {
-        padding: [8, 8]
-    });
+    //
+    // Determine bounds
+    //
 
-    map.setMaxBounds(heatmapBounds.pad(0.10));
-    map.options.maxBoundsViscosity = 0.8;
+    const heatmapBounds =
+        L.latLngBounds(
+            mslData.map(
+                p => [p[0], p[1]]
+            )
+        );
+
+    //
+    // Fit to full Nordic/Baltic box
+    //
+
+    map.fitBounds(
+        heatmapBounds,
+        {
+            padding: [8, 8]
+        }
+    );
+
+    //
+    // One zoom level in
+    //
+
+    map.setZoom(
+        map.getZoom() + 1
+    );
+
+    //
+    // Prevent panning far away
+    //
+
+    map.setMaxBounds(
+        heatmapBounds.pad(0.10)
+    );
+
+    map.options.maxBoundsViscosity =
+        0.8;
+
+    //
+    // Recalculate after layout settles
+    //
 
     setTimeout(() => {
-        map.invalidateSize();
-        map.fitBounds(heatmapBounds, {
-            padding: [8, 8]
-        });
-    }, 100);
 
-}).catch(err => {
-    console.error("Failed to load weather data:", err);
-    alert("Failed to load weather data");
-}).finally(() => {
+        map.invalidateSize();
+
+        map.fitBounds(
+            heatmapBounds,
+            {
+                padding: [8, 8]
+            }
+        );
+
+        map.setZoom(
+            map.getZoom() + 1
+        );
+
+    }, 100);
+})
+
+.catch(err => {
+
+    console.error(
+        "Failed to load weather data:",
+        err
+    );
+
+    alert(
+        "Failed to load weather data"
+    );
+})
+
+.finally(() => {
+
     hideLoading();
+
 });
