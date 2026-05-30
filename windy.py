@@ -78,6 +78,26 @@ class Windy:
         lons = coords[:, 0]
         lats = coords[:, 1]
 
+        # New
+        LAT_MIN = 54.0
+        LAT_MAX = 72.0
+        LON_MIN = 4.0
+        LON_MAX = 32.0
+
+        mask = (
+            (lats >= LAT_MIN) &
+            (lats <= LAT_MAX) &
+            (lons >= LON_MIN) &
+            (lons <= LON_MAX)
+        )
+
+        lons = lons[mask]
+        lats = lats[mask]
+        wd = wd[mask]
+        ws = ws[mask]
+        msl = msl[mask]
+        # End new
+
         wd = np.array(self.wd_data["timeSeries"][0]["data"][self.param_names["wd"]])
         ws = np.array(self.ws_data["timeSeries"][0]["data"][self.param_names["ws"]])
         msl = np.array(self.msl_data["timeSeries"][0]["data"][self.param_names["msl"]])
@@ -108,8 +128,13 @@ class Windy:
         # -------------------------
         # Grid creation
         # -------------------------
-        lon_grid = np.linspace(lons.min(), lons.max(), self.grid_size)
-        lat_grid = np.linspace(lats.min(), lats.max(), self.grid_size)
+        #lon_grid = np.linspace(lons.min(), lons.max(), self.grid_size)
+        #lat_grid = np.linspace(lats.min(), lats.max(), self.grid_size)
+
+        # New
+        lon_grid = np.linspace(LON_MIN, LON_MAX, self.grid_size)
+        lat_grid = np.linspace(LAT_MIN, LAT_MAX, self.grid_size)
+        # End new
 
         grid_lon, grid_lat = np.meshgrid(lon_grid, lat_grid)
 
@@ -249,8 +274,8 @@ class Windy:
 # -------------------------
 if __name__ == "__main__":
     w = Windy(
-        grid_size=300,
-        sample_size=30000,
+        grid_size=200, # 300
+        sample_size=15000  # 30000,
         smoothing_sigma=0.6
     )
 
