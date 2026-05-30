@@ -49,10 +49,13 @@ const map = L.map("map", {
 
 //map.setView([62.386843596239835, 16.32126446584757], 5);
 //map.setView([62.0, 18.0], 4);
-map.fitBounds([
-    [54, 4],
-    [72, 32]
-]);
+
+const nordicBounds = [
+    [54, 5],
+    [71, 31]
+];
+
+map.fitBounds(nordicBounds);
 
 
 L.control.layers(

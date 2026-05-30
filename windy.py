@@ -84,9 +84,9 @@ class Windy:
 
         # New
         LAT_MIN = 54.0
-        LAT_MAX = 72.0
-        LON_MIN = 4.0
-        LON_MAX = 32.0
+        LAT_MAX = 71.0
+        LON_MIN = 5.0
+        LON_MAX = 31.0
 
         mask = (
             (lats >= LAT_MIN) &
