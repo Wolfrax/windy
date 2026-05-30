@@ -30,16 +30,16 @@ const velocityLayer = new L.velocityLayer({
     minVelocity: 0,
     maxVelocity: 10,
     velocityScale: 0.008,
-    colorScale: [
-    "#00429d",
-    "#4771b2",
-    "#73a2c6",
-    "#a5d5d8",
-    "#ffffe0",
-    "#fdae61",
-    "#d7191c"
+    //colorScale: [
+    //"#00429d",
+    //"#4771b2",
+    //"#73a2c6",
+    //"#a5d5d8",
+    //"#ffffe0",
+    //"#fdae61",
+    //"#d7191c"
 ]
-    //colorScale: ["rgb(20,20,20)"]
+    colorScale: ["rgb(20,20,20)"]
     //colorScale: ["rgb(40,40,40)"]
     //colorScale: ["rgb(255,255,255)"]
 });
