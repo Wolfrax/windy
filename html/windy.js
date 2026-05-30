@@ -47,13 +47,14 @@ const map = L.map("map", {
     layers: [USGS_USImagery, velocityLayer, heatmapLayer]
 });
 
+// Initial fallback view while data is loading.
+// This is replaced by the actual heatmap bounds after msl.json is loaded.
 const nordicBounds = [
     [54, 5],
     [71, 31]
 ];
 
 map.fitBounds(nordicBounds);
-
 
 L.control.layers(
     {
@@ -168,9 +169,15 @@ Promise.all([
         mslData.map(p => [p[0], p[1]])
     );
 
-    map.fitBounds(heatmapBounds, {
-        padding: [20, 20]
-    });
+    // Fill the viewport with the heatmap box.
+    // This differs from fitBounds(): it may crop slightly vertically/horizontally,
+    // but avoids the large empty map areas outside the heatmap rectangle.
+    const zoom = map.getBoundsZoom(heatmapBounds, true);
+    map.setView(heatmapBounds.getCenter(), zoom);
+
+    // Limit panning outside the generated data area.
+    map.setMaxBounds(heatmapBounds.pad(0.02));
+    map.options.maxBoundsViscosity = 1.0;
 
 }).catch(err => {
     console.error("Failed to load weather data:", err);
@@ -178,35 +185,3 @@ Promise.all([
 }).finally(() => {
     hideLoading();
 });
-/*
-$.getJSON("wind.json", function(data) {
-    velocityLayer.setData(data);
-    addTimestampControl(data[0].header.refTime);
-});
-
-$.getJSON("msl.json", function(data) {
-
-    const values = data.map(p => p[2]);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const padding = 1.0;
-
-    const msl = {
-        min: min - padding,
-        max: max + padding,
-        data: []
-    };
-
-    console.log("MSL min:", msl.min, "max:", msl.max);
-
-    for (let i = 0; i < data.length; i++) {
-        msl.data.push({
-            lat: data[i][0],
-            lng: data[i][1],
-            value: data[i][2]
-        });
-    }
-
-    heatmapLayer.setData(msl);
-    addPressureLegend(msl.min, msl.max);
-}); */
