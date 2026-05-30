@@ -95,6 +95,15 @@ a {
     margin-bottom: 20px;
 }
 
+#wind-style {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #bbb;
+    background: white;
+}
+
 .pressure-legend {
     background: transparent;
     padding: 0;
@@ -164,12 +173,48 @@ a {
     #map-frame {
         width: 100%;
         max-width: none;
-        height: auto;
-        aspect-ratio: 14 / 9;
+        height: 70vh;
+        aspect-ratio: auto;
     }
 
     #side-panel {
         width: 100%;
         min-width: 0;
+    }
+
+    #topbar {
+        height: auto;
+        min-height: 72px;
+        flex-wrap: wrap;
+        padding: 10px 14px;
+    }
+
+    #timestamp-panel {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 600px) {
+    #content {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    #map-frame {
+        height: 65vh;
+        border-radius: 6px;
+    }
+
+    #side-panel {
+        padding: 10px;
+    }
+
+    #app-title {
+        font-size: 22px;
+    }
+
+    #timestamp-panel {
+        font-size: 18px;
+        padding: 6px 10px;
     }
 }

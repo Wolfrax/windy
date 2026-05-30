@@ -3,12 +3,14 @@
 <head>
     <title>Windy</title>
     <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href="https://www.viltstigen.se/favicon.png">
 
     <link rel="stylesheet" href="https://npmcdn.com/leaflet@1.1.0/dist/leaflet.css"/>
     <link rel="stylesheet" href="leaflet-velocity.css"/>
     <link rel="stylesheet" href="windy.css"/>
 </head>
+
 <body>
 <div id="loading">
     <div class="loading-box">Loading weather data...</div>
@@ -34,6 +36,14 @@
             </div>
 
             <div class="panel-section">
+                <h3>Wind Style</h3>
+                <select id="wind-style">
+                    <option value="dark" selected>Dark</option>
+                    <option value="colored">Colored</option>
+                </select>
+            </div>
+
+            <div class="panel-section">
                 <h3>Pressure</h3>
                 <div id="pressure-legend-container"></div>
             </div>
@@ -54,6 +64,6 @@
 <script src="leaflet-velocity.js"></script>
 <script src="heatmap.js"></script>
 <script src="leaflet-heatmap.js"></script>
-<script src="windy.js?version=3"></script>
+<script src="windy.js?version=4"></script>
 </body>
 </html>

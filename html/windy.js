@@ -1,6 +1,27 @@
+let currentWindData = null;
+let windStyle = "dark";
+
+function getWindColorScale(style) {
+    if (style === "colored") {
+        return [
+            "#00429d",
+            "#4771b2",
+            "#73a2c6",
+            "#a5d5d8",
+            "#ffffe0",
+            "#fdae61",
+            "#d7191c"
+        ];
+    }
+
+    return [
+        "rgb(20,40,80)"
+    ];
+}
+
 const heatmapLayer = new HeatmapOverlay({
     radius: 18,
-    maxOpacity: 0.35,
+    maxOpacity: 0.30,
     scaleRadius: false,
     useLocalExtrema: false,
     gradient: {
@@ -16,10 +37,11 @@ const heatmapLayer = new HeatmapOverlay({
 });
 
 const velocityLayer = new L.velocityLayer({
-    particleMultiplier: 1 / 150,
+    particleMultiplier: 1 / 120,
     frameRate: 30,
-    lineWidth: 1,
-    particleAge: 180,
+    lineWidth: 2,
+    particleAge: 220,
+
     displayValues: true,
     displayOptions: {
         velocityType: "Wind",
@@ -27,26 +49,12 @@ const velocityLayer = new L.velocityLayer({
         emptyString: "No wind data",
         showCardinal: true
     },
+
     minVelocity: 0,
     maxVelocity: 10,
-    velocityScale: 0.008,
-    //colorScale: [
-    //"#00429d",
-    //"#4771b2",
-    //"#73a2c6",
-    //"#a5d5d8",
-    //"#ffffe0",
-    //"#fdae61",
-    //"#d7191c"
-//]
-    colorScale: ["rgb(20,20,20)"]
-    //colorScale: ["rgb(40,40,40)"]
-    //colorScale: ["rgb(255,255,255)"]
+    velocityScale: 0.010,
+    colorScale: getWindColorScale(windStyle)
 });
-
-//
-// Base maps
-//
 
 const Positron = L.tileLayer(
     'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -54,24 +62,6 @@ const Positron = L.tileLayer(
         attribution: '&copy; OpenStreetMap &copy; CARTO'
     }
 );
-
-const DarkMatter = L.tileLayer(
-    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    {
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
-    }
-);
-
-const EsriSatellite = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    {
-        attribution: 'Tiles &copy; Esri'
-    }
-);
-
-//
-// Map
-//
 
 const map = L.map("map", {
     layers: [
@@ -81,10 +71,6 @@ const map = L.map("map", {
     ]
 });
 
-//
-// Nordic fallback view while loading
-//
-
 const nordicBounds = [
     [54, 5],
     [71, 31]
@@ -92,16 +78,8 @@ const nordicBounds = [
 
 map.fitBounds(nordicBounds);
 
-//
-// Layer control
-//
-
 const layerControl = L.control.layers(
-    {
-        "Light": Positron,
-        "Dark": DarkMatter,
-        "Satellite": EsriSatellite
-    },
+    {},
     {
         "Wind": velocityLayer,
         "Pressure": heatmapLayer
@@ -120,12 +98,7 @@ if (layerControlContainer) {
     );
 }
 
-//
-// Timestamp
-//
-
 function formatRefTime(refTime) {
-
     const date = new Date(refTime + "Z");
 
     const formatter = new Intl.DateTimeFormat(
@@ -154,7 +127,6 @@ function formatRefTime(refTime) {
 }
 
 function setTimestamp(refTime) {
-
     const timestampPanel =
         document.getElementById("timestamp-panel");
 
@@ -166,12 +138,7 @@ function setTimestamp(refTime) {
         formatRefTime(refTime);
 }
 
-//
-// Pressure legend
-//
-
 function addPressureLegend(min, max) {
-
     const container =
         document.getElementById(
             "pressure-legend-container"
@@ -197,10 +164,6 @@ function addPressureLegend(min, max) {
     `;
 }
 
-//
-// Loading
-//
-
 function showLoading() {
     document.getElementById("loading").style.display =
         "flex";
@@ -211,9 +174,28 @@ function hideLoading() {
         "none";
 }
 
-//
-// Load weather data
-//
+function refreshWindLayerStyle() {
+    velocityLayer.options.colorScale =
+        getWindColorScale(windStyle);
+
+    if (currentWindData) {
+        velocityLayer.setData(currentWindData);
+    }
+
+    if (typeof velocityLayer._clearAndRestart === "function") {
+        velocityLayer._clearAndRestart();
+    }
+}
+
+const windStyleSelector =
+    document.getElementById("wind-style");
+
+if (windStyleSelector) {
+    windStyleSelector.addEventListener("change", function(e) {
+        windStyle = e.target.value;
+        refreshWindLayerStyle();
+    });
+}
 
 showLoading();
 
@@ -223,24 +205,13 @@ Promise.all([
 ])
 
 .then(([windData, mslData]) => {
-
-    //
-    // Wind
-    //
+    currentWindData = windData;
 
     velocityLayer.setData(windData);
-
-    //
-    // Timestamp
-    //
 
     setTimestamp(
         windData[0].header.refTime
     );
-
-    //
-    // Pressure range
-    //
 
     const values =
         mslData.map(p => p[2]);
@@ -252,10 +223,6 @@ Promise.all([
         Math.max(...values);
 
     const padding = 1.0;
-
-    //
-    // Heatmap
-    //
 
     const msl = {
         min: min - padding,
@@ -274,20 +241,12 @@ Promise.all([
         msl.max
     );
 
-    //
-    // Determine bounds
-    //
-
     const heatmapBounds =
         L.latLngBounds(
             mslData.map(
                 p => [p[0], p[1]]
             )
         );
-
-    //
-    // Fit to full Nordic/Baltic box
-    //
 
     map.fitBounds(
         heatmapBounds,
@@ -296,17 +255,9 @@ Promise.all([
         }
     );
 
-    //
-    // One zoom level in
-    //
-
     map.setZoom(
         map.getZoom() + 1
     );
-
-    //
-    // Prevent panning far away
-    //
 
     map.setMaxBounds(
         heatmapBounds.pad(0.10)
@@ -315,12 +266,7 @@ Promise.all([
     map.options.maxBoundsViscosity =
         0.8;
 
-    //
-    // Recalculate after layout settles
-    //
-
     setTimeout(() => {
-
         map.invalidateSize();
 
         map.fitBounds(
@@ -338,7 +284,6 @@ Promise.all([
 })
 
 .catch(err => {
-
     console.error(
         "Failed to load weather data:",
         err
@@ -350,7 +295,5 @@ Promise.all([
 })
 
 .finally(() => {
-
     hideLoading();
-
 });
