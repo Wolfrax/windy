@@ -1,7 +1,8 @@
 let currentWindData = null;
 let currentMslData = null;
-let windStyle = "dark";
-let pressureStyle = "isobar";
+let windStyle = "colored";
+let pressureStyle = "none";
+
 
 let isobarLayer = L.layerGroup();
 
@@ -72,8 +73,7 @@ const map = L.map("map", {
     zoomDelta: 0.25,
     layers: [
         Positron,
-        velocityLayer,
-        isobarLayer
+        velocityLayer
     ]
 });
 
@@ -87,8 +87,7 @@ map.fitBounds(nordicBounds);
 const layerControl = L.control.layers(
     {},
     {
-        "Wind": velocityLayer,
-        "Pressure": isobarLayer
+        "Wind": velocityLayer
     },
     {
         collapsed: false
@@ -147,6 +146,16 @@ function addPressureLegend(min, max) {
         document.getElementById("pressure-legend-container");
 
     if (!container) {
+        return;
+    }
+
+    if (pressureStyle === "none") {
+        container.innerHTML = `
+            <div class="pressure-legend">
+                <div><strong>Pressure</strong></div>
+                <div>Off</div>
+            </div>
+        `;
         return;
     }
 
@@ -420,7 +429,7 @@ function refreshPressureDisplay() {
     if (pressureStyle === "heatmap") {
         renderHeatmap(currentMslData, min, max);
         map.addLayer(heatmapLayer);
-    } else {
+    } else if (pressureStyle === "isobar") {
         renderIsobars(currentMslData);
         map.addLayer(isobarLayer);
     }
