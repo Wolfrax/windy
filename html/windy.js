@@ -38,7 +38,7 @@ const velocityLayer = new L.velocityLayer({
     //"#ffffe0",
     //"#fdae61",
     //"#d7191c"
-]
+//]
     colorScale: ["rgb(20,20,20)"]
     //colorScale: ["rgb(40,40,40)"]
     //colorScale: ["rgb(255,255,255)"]
