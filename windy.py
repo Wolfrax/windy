@@ -275,7 +275,7 @@ class Windy:
 if __name__ == "__main__":
     w = Windy(
         grid_size=200, # 300
-        sample_size=15000  # 30000,
+        sample_size=15000,  # 30000,
         smoothing_sigma=0.6
     )
 
