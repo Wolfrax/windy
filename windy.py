@@ -133,7 +133,9 @@ class Windy:
 
         # New
         lon_grid = np.linspace(LON_MIN, LON_MAX, self.grid_size)
-        lat_grid = np.linspace(LAT_MIN, LAT_MAX, self.grid_size)
+        # leaflet-velocity expects row 0 of the flattened data to be the
+        # northernmost latitude (la1), with rows proceeding south from there.
+        lat_grid = np.linspace(LAT_MAX, LAT_MIN, self.grid_size)
         # End new
 
         grid_lon, grid_lat = np.meshgrid(lon_grid, lat_grid)
