@@ -14,21 +14,135 @@ const WIND_COLOR_SCALE = [
     "#d7191c"
 ];
 
-const heatmapLayer = new HeatmapOverlay({
-    radius: 18,
-    maxOpacity: 0.30,
-    scaleRadius: false,
-    useLocalExtrema: false,
-    gradient: {
-        0.00: '#313695',
-        0.25: '#74add1',
-        0.50: '#ffffbf',
-        0.75: '#fdae61',
-        1.00: '#a50026'
+// Diverging blue<->gray<->red scale anchored on the physical 1013.25 hPa
+// standard pressure - not today's min/max - so an ordinary flat day stays
+// gray instead of being stretched across the full range. Built by
+// interpolating in OKLCH from a neutral gray midpoint towards this
+// project's blue/red diverging pair and checked with the project's
+// palette validator (monotonic lightness, single hue per arm, light-end
+// contrast >= 2:1; the adjacent-band CVD separation sits in the 8-12
+// "floor" band, mitigated by the isobar lines/labels always drawn on top).
+const PRESSURE_BANDS = [
+    { max: 1000.6, color: "#2a78d6" },
+    { max: 1003.9, color: "#5b94dd" },
+    { max: 1010.3, color: "#87afe3" },
+    { max: 1016.3, color: "#f0efec" },
+    { max: 1022.6, color: "#f19a91" },
+    { max: 1025.9, color: "#eb746d" },
+    { max: Infinity, color: "#e34948" }
+];
+
+function bandColor(hpa) {
+    for (const band of PRESSURE_BANDS) {
+        if (hpa <= band.max) {
+            return band.color;
+        }
+    }
+
+    return PRESSURE_BANDS[PRESSURE_BANDS.length - 1].color;
+}
+
+// Renders the pressure grid as filled isobands. Mirrors the canvas-overlay
+// pattern L.CanvasLayer (leaflet-velocity.js) already uses in this app:
+// reposition via containerPointToLayerPoint on moveend/resize, draw with
+// latLngToContainerPoint.
+const PressureFillLayer = L.Layer.extend({
+    initialize: function(options) {
+        L.setOptions(this, options);
+        this._grid = null;
     },
-    latField: 'lat',
-    lngField: 'lng',
-    valueField: 'value'
+
+    setData: function(pressureGrid) {
+        this._grid = pressureGrid;
+
+        if (this._map) {
+            this._draw();
+        }
+    },
+
+    onAdd: function(map) {
+        this._map = map;
+        this._canvas = L.DomUtil.create("canvas", "pressure-fill-canvas");
+        this._canvas.style.pointerEvents = "none";
+
+        const size = map.getSize();
+        this._canvas.width = size.x;
+        this._canvas.height = size.y;
+
+        this.options.pane.appendChild(this._canvas);
+
+        map.on("moveend resize", this._reset, this);
+        this._reset();
+    },
+
+    onRemove: function(map) {
+        this.options.pane.removeChild(this._canvas);
+        map.off("moveend resize", this._reset, this);
+        this._canvas = null;
+    },
+
+    _reset: function() {
+        const topLeft = this._map.containerPointToLayerPoint([0, 0]);
+        L.DomUtil.setPosition(this._canvas, topLeft);
+
+        const size = this._map.getSize();
+        this._canvas.width = size.x;
+        this._canvas.height = size.y;
+
+        this._draw();
+    },
+
+    _draw: function() {
+        if (!this._canvas || !this._grid) {
+            return;
+        }
+
+        const ctx = this._canvas.getContext("2d");
+        ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+
+        const { lats, lngs, grid } = this._grid;
+        const map = this._map;
+
+        // Batch same-colored cells into one Path2D per band: far fewer
+        // fillStyle switches, and no antialiasing seams between adjacent
+        // same-band cells.
+        const pathsByColor = new Map();
+
+        for (let i = 0; i < lats.length - 1; i++) {
+            for (let j = 0; j < lngs.length - 1; j++) {
+                const v00 = grid[i][j], v01 = grid[i][j + 1];
+                const v10 = grid[i + 1][j], v11 = grid[i + 1][j + 1];
+
+                if (v00 == null || v01 == null || v10 == null || v11 == null) {
+                    continue;
+                }
+
+                const color = bandColor((v00 + v01 + v10 + v11) / 4);
+
+                let path = pathsByColor.get(color);
+                if (!path) {
+                    path = new Path2D();
+                    pathsByColor.set(color, path);
+                }
+
+                const p1 = map.latLngToContainerPoint([lats[i], lngs[j]]);
+                const p2 = map.latLngToContainerPoint([lats[i], lngs[j + 1]]);
+                const p3 = map.latLngToContainerPoint([lats[i + 1], lngs[j + 1]]);
+                const p4 = map.latLngToContainerPoint([lats[i + 1], lngs[j]]);
+
+                path.moveTo(p1.x, p1.y);
+                path.lineTo(p2.x, p2.y);
+                path.lineTo(p3.x, p3.y);
+                path.lineTo(p4.x, p4.y);
+                path.closePath();
+            }
+        }
+
+        pathsByColor.forEach((path, color) => {
+            ctx.fillStyle = color;
+            ctx.fill(path);
+        });
+    }
 });
 
 const velocityLayer = new L.velocityLayer({
@@ -73,6 +187,15 @@ const nordicBounds = [
 ];
 
 map.fitBounds(nordicBounds);
+
+// Sits above the basemap but below the isobar lines/labels (overlayPane)
+// and the wind particles, so isobands read as a background field.
+map.createPane("pressureFillPane");
+map.getPane("pressureFillPane").style.zIndex = 350;
+
+const pressureFillLayer = new PressureFillLayer({
+    pane: map.getPane("pressureFillPane")
+});
 
 function formatRefTime(refTime) {
     const date = new Date(refTime + "Z");
@@ -142,15 +265,31 @@ function addPressureLegend(min, max) {
         return;
     }
 
+    const edges = PRESSURE_BANDS.slice(0, -1).map(b => b.max);
+    const bandLabels = [
+        `< ${edges[0].toFixed(0)} hPa`,
+        `${edges[0].toFixed(0)}–${edges[1].toFixed(0)} hPa`,
+        `${edges[1].toFixed(0)}–${edges[2].toFixed(0)} hPa`,
+        `${edges[2].toFixed(0)}–${edges[3].toFixed(0)} hPa (normal)`,
+        `${edges[3].toFixed(0)}–${edges[4].toFixed(0)} hPa`,
+        `${edges[4].toFixed(0)}–${edges[5].toFixed(0)} hPa`,
+        `> ${edges[5].toFixed(0)} hPa`
+    ];
+
+    const rows = PRESSURE_BANDS
+        .map((b, i) => `
+            <div class="pressure-swatch-row">
+                <i style="background:${b.color}"></i>
+                <span>${bandLabels[i]}</span>
+            </div>
+        `)
+        .join("");
+
     container.innerHTML = `
         <div class="pressure-legend">
-            <div><strong>Pressure Heatmap</strong></div>
-            <div class="pressure-gradient"></div>
-            <div class="pressure-labels">
-                <span>${min.toFixed(1)} hPa</span>
-                <span>${max.toFixed(1)} hPa</span>
-            </div>
-            <div>Normalized 0–1 for color scaling</div>
+            <div><strong>Isobands</strong></div>
+            <div class="pressure-swatch-list">${rows}</div>
+            <div>Fixed scale, anchored on 1013 hPa standard pressure</div>
         </div>
     `;
 }
@@ -342,31 +481,6 @@ function renderIsobars(mslData) {
     });
 }
 
-function renderHeatmap(mslData, min, max) {
-    const range = max - min;
-
-    const normalizedData = mslData.map(p => ({
-        lat: p[0],
-        lng: p[1],
-        value: range > 0 ? (p[2] - min) / range : 0.5
-    }));
-
-    const normalizedValues = normalizedData.map(p => p.value);
-
-    console.log("Pressure raw min:", min);
-    console.log("Pressure raw max:", max);
-    console.log("Pressure raw range:", range);
-    console.log("Heatmap normalized min:", Math.min(...normalizedValues));
-    console.log("Heatmap normalized max:", Math.max(...normalizedValues));
-    console.log("Heatmap point count:", normalizedData.length);
-
-    heatmapLayer.setData({
-        min: 0,
-        max: 1,
-        data: normalizedData
-    });
-}
-
 function refreshPressureDisplay() {
     if (!currentMslData) {
         return;
@@ -381,12 +495,14 @@ function refreshPressureDisplay() {
     console.log("Pressure min hPa:", min);
     console.log("Pressure max hPa:", max);
 
-    map.removeLayer(heatmapLayer);
+    map.removeLayer(pressureFillLayer);
     map.removeLayer(isobarLayer);
 
-    if (pressureStyle === "heatmap") {
-        renderHeatmap(currentMslData, min, max);
-        map.addLayer(heatmapLayer);
+    if (pressureStyle === "isoband") {
+        pressureFillLayer.setData(buildPressureGrid(currentMslData));
+        renderIsobars(currentMslData);
+        map.addLayer(pressureFillLayer);
+        map.addLayer(isobarLayer);
     } else if (pressureStyle === "isobar") {
         renderIsobars(currentMslData);
         map.addLayer(isobarLayer);
@@ -424,7 +540,7 @@ Promise.all([
 
     refreshPressureDisplay();
 
-    const heatmapBounds =
+    const dataBounds =
         L.latLngBounds(
             mslData.map(
                 p => [p[0], p[1]]
@@ -432,7 +548,7 @@ Promise.all([
         );
 
     map.fitBounds(
-        heatmapBounds,
+        dataBounds,
         {
             padding: [8, 8]
         }
@@ -443,7 +559,7 @@ Promise.all([
     );
 
     map.setMaxBounds(
-        heatmapBounds.pad(0.10)
+        dataBounds.pad(0.10)
     );
 
     map.options.maxBoundsViscosity = 0.8;
@@ -452,7 +568,7 @@ Promise.all([
         map.invalidateSize();
 
         map.fitBounds(
-            heatmapBounds,
+            dataBounds,
             {
                 padding: [8, 8]
             }

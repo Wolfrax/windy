@@ -112,24 +112,25 @@ a {
     color: #222;
 }
 
-.pressure-gradient {
-    width: 100%;
-    height: 14px;
-    margin: 6px 0;
-    background: linear-gradient(
-        to right,
-        #313695,
-        #74add1,
-        #ffffbf,
-        #fdae61,
-        #a50026
-    );
+.pressure-swatch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 6px 0 8px;
 }
 
-.pressure-labels {
+.pressure-swatch-row {
     display: flex;
-    justify-content: space-between;
-    width: 100%;
+    align-items: center;
+    gap: 7px;
+}
+
+.pressure-swatch-row i {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.12);
 }
 
 .isobar-sample {
